@@ -1,0 +1,61 @@
+# Cloud Build configuration for Registry API
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: '1200s'
+
+substitutions:
+  _SERVICE_NAME: 'registry-api'
+  _REGION: 'europe-north1'
+  _IMAGE_TAG: '$SHORT_SHA'
+
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build'
+    args:
+      - 'build'
+      - '-t'
+      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:$_IMAGE_TAG'
+      - '-t'
+      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:latest'
+      - '.'
+    dir: 'platform/registry-api'
+
+  # Step 2: Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api'
+    waitFor: ['build']
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '$_SERVICE_NAME'
+      - '--image=europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:$_IMAGE_TAG'
+      - '--region=$_REGION'
+      - '--platform=managed'
+      - '--allow-unauthenticated'  # Public for load balancer to query subdomains
+      - '--set-env-vars=INSTANCE_CONNECTION_NAME=solvigo-platform-prod:europe-north1:solvigo-registry,DB_USER=registry-api@solvigo-platform-prod.iam,DB_NAME=registry'
+      - '--add-cloudsql-instances=solvigo-platform-prod:europe-north1:solvigo-registry'
+      - '--service-account=registry-api@solvigo-platform-prod.iam.gserviceaccount.com'
+      - '--vpc-connector=solvigo-vpc-connector'  # Connect to VPC for private IP
+      - '--vpc-egress=private-ranges-only'
+      - '--max-instances=3'
+      - '--min-instances=0'
+      - '--cpu=1'
+      - '--memory=512Mi'
+    waitFor: ['push']
+
+images:
+  - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:$_IMAGE_TAG'
+  - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:latest'

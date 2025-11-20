@@ -1,0 +1,1015 @@
+
+? What would you like to do? 📥 Import existing GCP project
+
+═══ Import Existing GCP Project ═══
+
+Let's import an existing GCP project!
+
+🔍 Listing your GCP projects...
+
+✓ Found 42 accessible projects
+
+? How would you like to find your project? (Use arrow keys) 📋 Browse all projects
+
+Page 1 of 3 (Projects 1-15 of 42)
+
+┏━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ #    ┃ Project ID                 ┃ Name                        ┃
+┡━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1    │ solvigo-platform-prod      │ Solvigo Platform Production │
+│ 2    │ create-app-478313          │ create-app                  │
+│ 3    │ titanium-portal-477922-v4  │ My First Project            │
+│ 4    │ gen-lang-client-0191911085 │ rhofinal                    │
+│ 5    │ seo-text-optimering        │ SEO-Text-Optimering         │
+│ 6    │ meeting-agent-477315       │ meeting-agent               │
+│ 7    │ bluegaz-customer-support   │ bluegaz-customer-support    │
+│ 8    │ bluegaz                    │ Bluegaz                     │
+│ 9    │ gen-lang-client-0186793691 │ RhoAI                       │
+│ 10   │ gen-lang-client-0235042268 │ caca                        │
+│ 11   │ gen-lang-client-0576761541 │ Nordiska Galleriet nr 2     │
+│ 12   │ gen-lang-client-0222693004 │ Nordiska Galleriet          │
+│ 13   │ yllw-lead-gen              │ yllw-lead-gen               │
+│ 14   │ dtmf-475021                │ DTMF                        │
+│ 15   │ autokontering-fortknox     │ Autokontering-Fortknox      │
+└──────┴────────────────────────────┴─────────────────────────────┘
+
+? Select project (page 1/3): (Use arrow keys) bluegaz-customer-support - bluegaz-customer-
+support
+
+Selected: bluegaz-customer-support
+
+
+🔍 Importing GCP project: bluegaz-customer-support
+
+✓ Project accessible
+? Client name: Bluegaz
+? Project name: Bluegaz customer support
+
+Checking for client folder: bluegaz
+✓ Found existing folder: 129474072630
+
+Project already in folder 129474072630
+
+Checking required APIs for bluegaz-customer-support...
+✓ All required APIs are already enabled
+
+
+🔍 Scanning GCP project: bluegaz-customer-support...
+Discovering resources... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+
+✓ Found Storage buckets (2)
+✓ Found Service Accounts (1)
+✓ Found enabled APIs (3)
+
+
+────────────────────────────────────────────────────────────────
+
+
+Database Configuration
+
+? Select databases (or skip): [+ Create new Cloud SQL (PostgreSQL/MySQL)]
+
+Create New Cloud SQL Database
+
+? Instance name: bluegaz-customer-support-db
+? Database type: (Use arrow keys) PostgreSQL 15 (recommended)
+? Instance size (can be changed later in Terraform): (Use arrow keys) Small (recommended) 
+- 0.6GB RAM, €7-15/month
+
+Note: Instance size can be easily changed later in the Terraform configuration
+? Region: europe-north2 (Stockholm) [recommended]
+? Enable automated backups? Yes
+? Select storage buckets: [+ Create new bucket]
+
+Create New Storage Bucket
+
+? Bucket purpose: (Use arrow keys) Data storage
+? Bucket name (globally unique): bluegaz-customer-support-bucket
+? Bucket location: europe-north2 (Stockholm) [recommended]
+? Select service accounts: [1064116177689-compute@developer.gserviceaccount.com]
+? Select APIs to include in Terraform: [Vertex AI (aiplatform.googleapis.com)]
+
+════════════════════════════════════════════════════════════════
+
+Where should we generate the infrastructure code?
+
+This should be your project's GitHub repository.
+We'll create terraform/ and cicd/ folders there.
+
+
+═══ Application Code Location ═══
+
+Where is your application code located?
+This should be your local GitHub repository with Dockerfiles.
+
+✓ Found repository: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+? Application code directory path: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+✓ Will generate code in: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+  Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+  CI/CD: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd
+
+
+📝 Generating Terraform configuration...
+
+  Terraform modules already exist at 
+/Users/kristifrancis/Desktop/Solvigo/bluegaz/.terraform-modules
+  ✓ Created backend.tf
+  ✓ Created variables.tf
+  ✓ Created main.tf
+  ✓ Created database-sql.tf
+  ✓ Created storage.tf
+  ✓ Created service-accounts.tf
+  ✓ Created imports.tf
+  ✓ Created outputs.tf
+
+✓ Terraform configuration generated in: 
+/Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+════════════════════════════════════════════════════════════════
+
+
+═══ CI/CD Setup ═══
+
+Set up automated deployments with Cloud Build?
+This will create build triggers for dev/staging/prod environments
+
+? Setup CI/CD pipeline? Yes
+
+What type of application is this?
+
+? Application type: 🌐 Fullstack (Both backend and frontend)
+
+═══ Select Dockerfile for backend ═══
+
+📂 Browse: ./ (repository root)
+Select Dockerfile for backend
+
+? Select Dockerfile location: 📁 customer-support-platform/  [Navigate]
+
+📂 Browse: customer-support-platform
+Select Dockerfile for backend
+
+? Select Dockerfile location: 📦 backend/  [Contains Dockerfile ✓]
+
+📂 Browse: customer-support-platform/backend
+Select Dockerfile for backend
+
+? Select Dockerfile location: 🐳 Dockerfile  [Select this file]
+
+Cloud Run service name for backend:
+This will be deployed to Cloud Run
+
+? Backend service name: bluegaz-customer-support-backend
+
+═══ Select Dockerfile for frontend ═══
+
+📂 Browse: ./ (repository root)
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 📁 customer-support-platform/  [Navigate]
+
+📂 Browse: customer-support-platform
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 📦 frontend/  [Contains Dockerfile ✓]
+
+📂 Browse: customer-support-platform/frontend
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 🐳 Dockerfile  [Select this file]
+
+Cloud Run service name for frontend:
+This will be deployed to Cloud Run
+
+? Frontend service name: bluegaz-customer-support-frontend
+
+GitHub Repository:
+This should be the HTTPS URL of your GitHub repository
+
+? GitHub repository URL: https://github.com/solvigo/bluegaz-bluegaz-customer-support.git
+
+Which environments do you want to set up?
+
+Note: Local development uses docker-compose (not cloud deployment)
+
+? Select environments: done (2 selections)
+
+═══ CI/CD Setup Summary ═══
+
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Service Type ┃ Service Name                      ┃ Dockerfile                          ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Backend      │ bluegaz-customer-support-backend  │ customer-support-platform/backend/… │
+│ Frontend     │ bluegaz-customer-support-frontend │ customer-support-platform/frontend… │
+└──────────────┴───────────────────────────────────┴─────────────────────────────────────┘
+
+Repository: https://github.com/solvigo/bluegaz-bluegaz-customer-support.git
+Environments: staging, prod
+
+? Proceed with CI/CD setup? Yes
+
+📝 Generating CI/CD configuration...
+
+  ✓ Created cicd.tf
+  ✓ Created cloudbuild-backend.yaml
+  ✓ Created cloudbuild-frontend.yaml
+
+✓ CI/CD configuration generated successfully
+
+Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform/cicd.tf
+Build configs: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd/cloudbuild*.yaml
+
+✅ CI/CD configuration generated successfully!
+
+Generated files:
+  Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform/
+  Build configs: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd/
+
+Registering project in Solvigo registry...
+⚠ Could not register in registry: Failed to get auth token: Command '['gcloud', 'auth', 
+'print-identity-token', 
+'--audiences=https://registry-api-430162142300.europe-north1.run.app']' returned non-zero 
+exit status 1.
+Continuing without registry (not critical)...
+
+Next steps:
+  1. Review and commit the generated files
+  2. Push to GitHub to trigger first build
+  3. Monitor builds in Cloud Build console
+
+
+────────────────────────────────────────────────────────────────
+
+? Run Terraform import now? Yes
+╭─────────────────────────────────── Import Workflow ────────────────────────────────────╮
+│ Terraform Import Workflow                                                              │
+│                                                                                        │
+│ This will:                                                                             │
+│   1. Initialize Terraform                                                              │
+│   2. Run terraform plan (preview imports)                                              │
+│   3. Run terraform apply (execute imports)                                             │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+? Proceed with import workflow? Yes
+Step 1/3: Terraform Init
+
+
+Running: terraform init
+Directory: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+[0m[1mInitializing the backend...[0m
+[0m[1mInitializing modules...[0m
+- bluegaz_customer_support_bucket in ../.terraform-modules/storage-bucket
+- bluegaz_customer_support_db in ../.terraform-modules/database-cloudsql
+- cicd in ../.terraform-modules/platform/cloud-build-pipeline
+- cicd.deployer_sa in
+[31m[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mUnreadable module directory[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mUnable to evaluate directory symlink: lstat ../modules: no such file or
+[31m│[0m [0mdirectory
+[31m╵[0m[0m
+[0m[0m
+[31m[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mUnreadable module directory[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mThe directory  could not be read for module "deployer_sa" at
+[31m│[0m [0m../.terraform-modules/platform/cloud-build-pipeline/main.tf:20.
+[31m╵[0m[0m
+[0m[0m
+
+✗ init failed with code 1
+
+✗ Init failed
+
+
+Import workflow incomplete.
+You can continue manually in: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+? Return to main menu? Yes
+? What would you like to do? 📥 Import existing GCP project
+
+═══ Import Existing GCP Project ═══
+
+Let's import an existing GCP project!
+
+🔍 Listing your GCP projects...
+
+✓ Found 42 accessible projects
+
+? How would you like to find your project? (Use arrow keys) (Use arrow keys)^Z            
+
+Cancelled by user
+
+Traceback (most recent call last):
+  File "/opt/homebrew/bin/solvigo", line 7, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/opt/homebrew/lib/python3.11/site-packages/click/core.py", line 1442, in __call__
+    # `ctx.exit(1)` and to `return 1`, the caller won't be able to
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/lib/python3.11/site-packages/click/core.py", line 1363, in main
+    uppercase.
+^^^^^^^^^^^^^^^
+  File "/opt/homebrew/lib/python3.11/site-packages/click/core.py", line 1808, in invoke
+    continue
+             
+  File "/opt/homebrew/lib/python3.11/site-packages/click/core.py", line 1226, in invoke
+    for param in iter_params_for_processing(param_order, self.get_params(ctx)):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/lib/python3.11/site-packages/click/core.py", line 794, in invoke
+    )
+      
+  File "/opt/homebrew/lib/python3.11/site-packages/click/decorators.py", line 34, in new_func
+    return f(get_current_context(), *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kristifrancis/Desktop/Solvigo/create-app/cli/solvigo/main.py", line 27, in cli
+    run_interactive()
+  File "/Users/kristifrancis/Desktop/Solvigo/create-app/cli/solvigo/main.py", line 50, in run_interactive
+    interactive_mode(context)
+  File "/Users/kristifrancis/Desktop/Solvigo/create-app/cli/solvigo/commands/interactive.py", line 64, in interactive_mode
+    handle_import_project()
+  File "/Users/kristifrancis/Desktop/Solvigo/create-app/cli/solvigo/commands/interactive.py", line 196, in handle_import_project
+    interactive_import_project()
+  File "/Users/kristifrancis/Desktop/Solvigo/create-app/cli/solvigo/commands/import_cmd.py", line 506, in interactive_import_project
+    gcp_project_id = select_project_interactive(active_projects)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kristifrancis/Desktop/Solvigo/create-app/cli/solvigo/commands/import_cmd.py", line 31, in select_project_interactive
+    if "Search" in choice:
+       ^^^^^^^^^^^^^^^^^^
+TypeError: argument of type 'NoneType' is not iterable
+kristifrancis@Kristis-MacBook-Air bluegaz % solvigo
+
+╭──────────────────────────────────╮
+│ 🚀 Welcome to Solvigo CLI v0.1.0 │
+╰──────────────────────────────────╯
+
+
+Git Repository Detected
+  📁 Root:   /Users/kristifrancis/Desktop/Solvigo/bluegaz
+  🌿 Branch: main
+  🔗 Remote: https://github.com/Solvigo/bluegaz.git
+  📝 Status: Uncommitted changes
+
+? Continue with this repository? (Y/n)                                                    
+
+Cancelled by user
+
+
+Exiting...
+
+kristifrancis@Kristis-MacBook-Air bluegaz % solvigo
+
+╭──────────────────────────────────╮
+│ 🚀 Welcome to Solvigo CLI v0.1.0 │
+╰──────────────────────────────────╯
+
+
+Git Repository Detected
+  📁 Root:   /Users/kristifrancis/Desktop/Solvigo/bluegaz
+  🌿 Branch: main
+  🔗 Remote: https://github.com/Solvigo/bluegaz.git
+  📝 Status: Clean
+
+? Continue with this repository? Yes
+No project detected in current directory.
+
+? What would you like to do? 📥 Import existing GCP project
+
+═══ Import Existing GCP Project ═══
+
+Let's import an existing GCP project!
+
+🔍 Listing your GCP projects...
+
+✓ Found 42 accessible projects
+
+? How would you like to find your project? (Use arrow keys) 📋 Browse all projects
+
+Page 1 of 3 (Projects 1-15 of 42)
+
+┏━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ #    ┃ Project ID                 ┃ Name                        ┃
+┡━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1    │ solvigo-platform-prod      │ Solvigo Platform Production │
+│ 2    │ create-app-478313          │ create-app                  │
+│ 3    │ titanium-portal-477922-v4  │ My First Project            │
+│ 4    │ gen-lang-client-0191911085 │ rhofinal                    │
+│ 5    │ seo-text-optimering        │ SEO-Text-Optimering         │
+│ 6    │ meeting-agent-477315       │ meeting-agent               │
+│ 7    │ bluegaz-customer-support   │ bluegaz-customer-support    │
+│ 8    │ bluegaz                    │ Bluegaz                     │
+│ 9    │ gen-lang-client-0186793691 │ RhoAI                       │
+│ 10   │ gen-lang-client-0235042268 │ caca                        │
+│ 11   │ gen-lang-client-0576761541 │ Nordiska Galleriet nr 2     │
+│ 12   │ gen-lang-client-0222693004 │ Nordiska Galleriet          │
+│ 13   │ yllw-lead-gen              │ yllw-lead-gen               │
+│ 14   │ dtmf-475021                │ DTMF                        │
+│ 15   │ autokontering-fortknox     │ Autokontering-Fortknox      │
+└──────┴────────────────────────────┴─────────────────────────────┘
+
+? Select project (page 1/3): (Use arrow keys) bluegaz-customer-support - bluegaz-customer-
+support
+
+Selected: bluegaz-customer-support
+
+
+🔍 Importing GCP project: bluegaz-customer-support
+
+✓ Project accessible
+? Client name: Bluegaz
+? Project name: Bluegaz customer support
+
+Checking for client folder: bluegaz
+✓ Found existing folder: 129474072630
+
+Project already in folder 129474072630
+
+Checking required APIs for bluegaz-customer-support...
+✓ All required APIs are already enabled
+
+
+🔍 Scanning GCP project: bluegaz-customer-support...
+Discovering resources... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+
+✓ Found Storage buckets (2)
+✓ Found Service Accounts (1)
+✓ Found enabled APIs (3)
+
+
+────────────────────────────────────────────────────────────────
+
+
+Database Configuration
+
+? Select databases (or skip): done
+? Select storage buckets: done (2 selections)
+? Select service accounts: [1064116177689-compute@developer.gserviceaccount.com]
+? Select APIs to include in Terraform: [Vertex AI (aiplatform.googleapis.com)]
+
+════════════════════════════════════════════════════════════════
+
+Where should we generate the infrastructure code?
+
+This should be your project's GitHub repository.
+We'll create terraform/ and cicd/ folders there.
+
+
+═══ Application Code Location ═══
+
+Where is your application code located?
+This should be your local GitHub repository with Dockerfiles.
+
+✓ Found repository: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+? Application code directory path: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+✓ Will generate code in: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+  Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+  CI/CD: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd
+
+
+📝 Generating Terraform configuration...
+
+  Copying Terraform modules...
+  ✓ Modules copied to .terraform-modules/
+  ✓ Created backend.tf
+  ✓ Created variables.tf
+  ✓ Created main.tf
+  ✓ Created storage.tf
+  ✓ Created service-accounts.tf
+  ✓ Created imports.tf
+  ✓ Created outputs.tf
+
+✓ Terraform configuration generated in: 
+/Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+════════════════════════════════════════════════════════════════
+
+
+═══ CI/CD Setup ═══
+
+Set up automated deployments with Cloud Build?
+This will create build triggers for dev/staging/prod environments
+
+? Setup CI/CD pipeline? Yes
+
+What type of application is this?
+
+? Application type: 🌐 Fullstack (Both backend and frontend)
+
+═══ Select Dockerfile for backend ═══
+
+📂 Browse: ./ (repository root)
+Select Dockerfile for backend
+
+? Select Dockerfile location: 📁 customer-support-platform/  [Navigate]
+
+📂 Browse: customer-support-platform
+Select Dockerfile for backend
+
+? Select Dockerfile location: 📦 backend/  [Contains Dockerfile ✓]
+
+📂 Browse: customer-support-platform/backend
+Select Dockerfile for backend
+
+? Select Dockerfile location: 🐳 Dockerfile  [Select this file]
+
+Cloud Run service name for backend:
+This will be deployed to Cloud Run
+
+? Backend service name: bluegaz-customer-support-backend
+
+═══ Select Dockerfile for frontend ═══
+
+📂 Browse: ./ (repository root)
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 📁 customer-support-platform/  [Navigate]
+
+📂 Browse: customer-support-platform
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 📦 frontend/  [Contains Dockerfile ✓]
+
+📂 Browse: customer-support-platform/frontend
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 🐳 Dockerfile  [Select this file]
+
+Cloud Run service name for frontend:
+This will be deployed to Cloud Run
+
+? Frontend service name: bluegaz-customer-support-frontend
+
+GitHub Repository:
+This should be the HTTPS URL of your GitHub repository
+
+? GitHub repository URL: https://github.com/solvigo/bluegaz-bluegaz-customer-support.git
+
+Which environments do you want to set up?
+
+Note: Local development uses docker-compose (not cloud deployment)
+
+? Select environments: done (2 selections)
+
+═══ CI/CD Setup Summary ═══
+
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Service Type ┃ Service Name                      ┃ Dockerfile                          ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Backend      │ bluegaz-customer-support-backend  │ customer-support-platform/backend/… │
+│ Frontend     │ bluegaz-customer-support-frontend │ customer-support-platform/frontend… │
+└──────────────┴───────────────────────────────────┴─────────────────────────────────────┘
+
+Repository: https://github.com/solvigo/bluegaz-bluegaz-customer-support.git
+Environments: staging, prod
+
+? Proceed with CI/CD setup? Yes
+
+📝 Generating CI/CD configuration...
+
+  ✓ Created cicd.tf
+  ✓ Created cloudbuild-backend.yaml
+  ✓ Created cloudbuild-frontend.yaml
+
+✓ CI/CD configuration generated successfully
+
+Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform/cicd.tf
+Build configs: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd/cloudbuild*.yaml
+
+✅ CI/CD configuration generated successfully!
+
+Generated files:
+  Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform/
+  Build configs: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd/
+
+Registering project in Solvigo registry...
+⚠ Could not register in registry: Failed to get auth token: Command '['gcloud', 'auth', 
+'print-identity-token', 
+'--audiences=https://registry-api-430162142300.europe-north1.run.app']' returned non-zero 
+exit status 1.
+Continuing without registry (not critical)...
+
+Next steps:
+  1. Review and commit the generated files
+  2. Push to GitHub to trigger first build
+  3. Monitor builds in Cloud Build console
+
+
+────────────────────────────────────────────────────────────────
+
+? Run Terraform import now? Yes
+╭─────────────────────────────────── Import Workflow ────────────────────────────────────╮
+│ Terraform Import Workflow                                                              │
+│                                                                                        │
+│ This will:                                                                             │
+│   1. Initialize Terraform                                                              │
+│   2. Run terraform plan (preview imports)                                              │
+│   3. Run terraform apply (execute imports)                                             │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+? Proceed with import workflow? Yes
+Step 1/3: Terraform Init
+
+
+Running: terraform init
+Directory: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+[0m[1mInitializing the backend...[0m
+[0m[1mInitializing modules...[0m
+- bluegaz_filesearch_test in ../.terraform-modules/storage-bucket
+- bucket_1064116177689_europe_north2_import_csv in ../.terraform-modules/storage-bucket
+- cicd in ../.terraform-modules/platform/cloud-build-pipeline
+- cicd.deployer_sa in ../.terraform-modules/service-account
+[31m[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to get existing workspaces: querying Cloud
+Storage failed: storage: bucket doesn't exist[0m
+[31m│[0m [0m
+[31m│[0m [0m[0m
+[31m╵[0m[0m
+[0m[0m
+
+✗ init failed with code 1
+
+✗ Init failed
+
+
+Import workflow incomplete.
+You can continue manually in: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+? Return to main menu? (Y/n)                                                              
+
+Cancelled by user
+
+? What would you like to do? (Use arrow keys)                                             
+
+Cancelled by user
+
+
+Goodbye! 👋
+
+kristifrancis@Kristis-MacBook-Air bluegaz % python3.11  -m pip install -e /Users/kristifrancis/Desktop/Solvigo/create-app/cli --force-reinstall --no-deps
+Obtaining file:///Users/kristifrancis/Desktop/Solvigo/create-app/cli
+  Installing build dependencies ... done
+  Checking if build backend supports build_editable ... done
+  Getting requirements to build editable ... done
+  Preparing editable metadata (pyproject.toml) ... done
+Building wheels for collected packages: solvigo-cli
+  Building editable for solvigo-cli (pyproject.toml) ... done
+  Created wheel for solvigo-cli: filename=solvigo_cli-0.1.0-0.editable-py3-none-any.whl size=5026 sha256=7a7faed0d406a9c3d3232625ef3f7a6d8f9c853b720183740a2e89c501def610
+  Stored in directory: /private/var/folders/xx/_0z_20q92fzg39_8839c7m180000gn/T/pip-ephem-wheel-cache-vo6qfzvh/wheels/8e/cd/fc/c158f85543a587de2330d321dfb684eb8dfde026621a4d911e
+Successfully built solvigo-cli
+Installing collected packages: solvigo-cli
+  Attempting uninstall: solvigo-cli
+    Found existing installation: solvigo-cli 0.1.0
+    Uninstalling solvigo-cli-0.1.0:
+      Successfully uninstalled solvigo-cli-0.1.0
+Successfully installed solvigo-cli-0.1.0
+kristifrancis@Kristis-MacBook-Air bluegaz % solvigo
+
+╭──────────────────────────────────╮
+│ 🚀 Welcome to Solvigo CLI v0.1.0 │
+╰──────────────────────────────────╯
+
+
+Git Repository Detected
+  📁 Root:   /Users/kristifrancis/Desktop/Solvigo/bluegaz
+  🌿 Branch: main
+  🔗 Remote: https://github.com/Solvigo/bluegaz.git
+  📝 Status: Uncommitted changes
+
+? Continue with this repository? Yes
+  📂 Project     Bluegaz/Bluegaz customer support              
+  📍 Location    /Users/kristifrancis/Desktop/Solvigo/bluegaz  
+  ✓ Terraform    Found                                         
+
+? What would you like to do with Bluegaz/Bluegaz customer support? ❌ Exit
+
+Goodbye! 👋
+
+kristifrancis@Kristis-MacBook-Air bluegaz % solvigo
+
+╭──────────────────────────────────╮
+│ 🚀 Welcome to Solvigo CLI v0.1.0 │
+╰──────────────────────────────────╯
+
+
+Git Repository Detected
+  📁 Root:   /Users/kristifrancis/Desktop/Solvigo/bluegaz
+  🌿 Branch: main
+  🔗 Remote: https://github.com/Solvigo/bluegaz.git
+  📝 Status: Uncommitted changes
+
+? Continue with this repository? No
+
+Exiting...
+
+kristifrancis@Kristis-MacBook-Air bluegaz % solvigo
+
+╭──────────────────────────────────╮
+│ 🚀 Welcome to Solvigo CLI v0.1.0 │
+╰──────────────────────────────────╯
+
+
+Git Repository Detected
+  📁 Root:   /Users/kristifrancis/Desktop/Solvigo/bluegaz
+  🌿 Branch: main
+  🔗 Remote: https://github.com/Solvigo/bluegaz.git
+  📝 Status: Clean
+
+? Continue with this repository? Yes
+No project detected in current directory.
+
+? What would you like to do? 📥 Import existing GCP project
+
+═══ Import Existing GCP Project ═══
+
+Let's import an existing GCP project!
+
+🔍 Listing your GCP projects...
+
+✓ Found 42 accessible projects
+
+? How would you like to find your project? (Use arrow keys) 📋 Browse all projects
+
+Page 1 of 3 (Projects 1-15 of 42)
+
+┏━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ #    ┃ Project ID                 ┃ Name                        ┃
+┡━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1    │ solvigo-platform-prod      │ Solvigo Platform Production │
+│ 2    │ create-app-478313          │ create-app                  │
+│ 3    │ titanium-portal-477922-v4  │ My First Project            │
+│ 4    │ gen-lang-client-0191911085 │ rhofinal                    │
+│ 5    │ seo-text-optimering        │ SEO-Text-Optimering         │
+│ 6    │ meeting-agent-477315       │ meeting-agent               │
+│ 7    │ bluegaz-customer-support   │ bluegaz-customer-support    │
+│ 8    │ bluegaz                    │ Bluegaz                     │
+│ 9    │ gen-lang-client-0186793691 │ RhoAI                       │
+│ 10   │ gen-lang-client-0235042268 │ caca                        │
+│ 11   │ gen-lang-client-0576761541 │ Nordiska Galleriet nr 2     │
+│ 12   │ gen-lang-client-0222693004 │ Nordiska Galleriet          │
+│ 13   │ yllw-lead-gen              │ yllw-lead-gen               │
+│ 14   │ dtmf-475021                │ DTMF                        │
+│ 15   │ autokontering-fortknox     │ Autokontering-Fortknox      │
+└──────┴────────────────────────────┴─────────────────────────────┘
+
+? Select project (page 1/3): (Use arrow keys) bluegaz-customer-support - bluegaz-customer-
+support
+
+Selected: bluegaz-customer-support
+
+
+🔍 Importing GCP project: bluegaz-customer-support
+
+✓ Project accessible
+? Client name: Bluegaz
+? Project name: Bluegaz customer support
+
+Checking for client folder: bluegaz
+✓ Found existing folder: 129474072630
+
+Project already in folder 129474072630
+
+Checking required APIs for bluegaz-customer-support...
+✓ All required APIs are already enabled
+
+
+🔍 Scanning GCP project: bluegaz-customer-support...
+Discovering resources... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+
+✓ Found Storage buckets (2)
+✓ Found Service Accounts (1)
+✓ Found enabled APIs (3)
+
+
+────────────────────────────────────────────────────────────────
+
+
+Database Configuration
+
+? Select databases (or skip): [+ Create new Cloud SQL (PostgreSQL/MySQL)]
+
+Create New Cloud SQL Database
+
+? Instance name: bluegaz-customer-support-db
+? Database type: (Use arrow keys) PostgreSQL 15 (recommended)
+? Instance size (can be changed later in Terraform): (Use arrow keys) Small (recommended) 
+- 0.6GB RAM, €7-15/month
+
+Note: Instance size can be easily changed later in the Terraform configuration
+? Region: europe-north2 (Stockholm) [recommended]
+? Enable automated backups? Yes
+? Select storage buckets: done (2 selections)
+? Select service accounts: [1064116177689-compute@developer.gserviceaccount.com]
+? Select APIs to include in Terraform: [Vertex AI (aiplatform.googleapis.com)]
+
+════════════════════════════════════════════════════════════════
+
+Where should we generate the infrastructure code?
+
+This should be your project's GitHub repository.
+We'll create terraform/ and cicd/ folders there.
+
+
+═══ Application Code Location ═══
+
+Where is your application code located?
+This should be your local GitHub repository with Dockerfiles.
+
+✓ Found repository: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+? Application code directory path: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+✓ Will generate code in: /Users/kristifrancis/Desktop/Solvigo/bluegaz
+
+  Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+  CI/CD: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd
+
+
+📝 Generating Terraform configuration...
+
+  Copying Terraform modules...
+  ✓ Modules copied to .terraform-modules/
+  ✓ Created backend.tf
+  ✓ Created variables.tf
+  ✓ Created main.tf
+  ✓ Created database-sql.tf
+  ✓ Created storage.tf
+  ✓ Created service-accounts.tf
+  ✓ Created imports.tf
+  ✓ Created outputs.tf
+
+✓ Terraform configuration generated in: 
+/Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+════════════════════════════════════════════════════════════════
+
+
+═══ CI/CD Setup ═══
+
+Set up automated deployments with Cloud Build?
+This will create build triggers for dev/staging/prod environments
+
+? Setup CI/CD pipeline? Yes
+
+What type of application is this?
+
+? Application type: 🌐 Fullstack (Both backend and frontend)
+
+═══ Select Dockerfile for backend ═══
+
+📂 Browse: ./ (repository root)
+Select Dockerfile for backend
+
+? Select Dockerfile location: 📁 customer-support-platform/  [Navigate]
+
+📂 Browse: customer-support-platform
+Select Dockerfile for backend
+
+? Select Dockerfile location: 📦 backend/  [Contains Dockerfile ✓]
+
+📂 Browse: customer-support-platform/backend
+Select Dockerfile for backend
+
+? Select Dockerfile location: 🐳 Dockerfile  [Select this file]
+
+Cloud Run service name for backend:
+This will be deployed to Cloud Run
+
+? Backend service name: bluegaz-customer-support-backend
+
+═══ Select Dockerfile for frontend ═══
+
+📂 Browse: ./ (repository root)
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 📁 customer-support-platform/  [Navigate]
+
+📂 Browse: customer-support-platform
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 📦 frontend/  [Contains Dockerfile ✓]
+
+📂 Browse: customer-support-platform/frontend
+Select Dockerfile for frontend
+
+? Select Dockerfile location: 🐳 Dockerfile  [Select this file]
+
+Cloud Run service name for frontend:
+This will be deployed to Cloud Run
+
+? Frontend service name: bluegaz-customer-support-frontend
+
+GitHub Repository:
+This should be the HTTPS URL of your GitHub repository
+
+? GitHub repository URL: https://github.com/solvigo/bluegaz-bluegaz-customer-support.git
+
+Which environments do you want to set up?
+
+Note: Local development uses docker-compose (not cloud deployment)
+
+? Select environments: done (2 selections)
+
+═══ CI/CD Setup Summary ═══
+
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Service Type ┃ Service Name                      ┃ Dockerfile                          ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Backend      │ bluegaz-customer-support-backend  │ customer-support-platform/backend/… │
+│ Frontend     │ bluegaz-customer-support-frontend │ customer-support-platform/frontend… │
+└──────────────┴───────────────────────────────────┴─────────────────────────────────────┘
+
+Repository: https://github.com/solvigo/bluegaz-bluegaz-customer-support.git
+Environments: staging, prod
+
+? Proceed with CI/CD setup? Yes
+
+📝 Generating CI/CD configuration...
+
+  ✓ Created cicd.tf
+  ✓ Created cloudbuild-backend.yaml
+  ✓ Created cloudbuild-frontend.yaml
+
+✓ CI/CD configuration generated successfully
+
+Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform/cicd.tf
+Build configs: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd/cloudbuild*.yaml
+
+✅ CI/CD configuration generated successfully!
+
+Generated files:
+  Terraform: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform/
+  Build configs: /Users/kristifrancis/Desktop/Solvigo/bluegaz/cicd/
+
+Registering project in Solvigo registry...
+⚠ Could not register in registry: Failed to get auth token: Command '['gcloud', 'auth', 
+'print-identity-token', 
+'--audiences=https://registry-api-430162142300.europe-north1.run.app']' returned non-zero 
+exit status 1.
+Continuing without registry (not critical)...
+
+Next steps:
+  1. Review and commit the generated files
+  2. Push to GitHub to trigger first build
+  3. Monitor builds in Cloud Build console
+
+
+────────────────────────────────────────────────────────────────
+
+? Run Terraform import now? Yes
+╭─────────────────────────────────── Import Workflow ────────────────────────────────────╮
+│ Terraform Import Workflow                                                              │
+│                                                                                        │
+│ This will:                                                                             │
+│   1. Initialize Terraform                                                              │
+│   2. Run terraform plan (preview imports)                                              │
+│   3. Run terraform apply (execute imports)                                             │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+? Proceed with import workflow? Yes
+Step 1/3: Terraform Init
+
+
+Running: terraform init
+Directory: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+[0m[1mInitializing the backend...[0m
+[0m[1mInitializing modules...[0m
+- bluegaz_customer_support_db in ../.terraform-modules/database-cloudsql
+- bluegaz_filesearch_test in ../.terraform-modules/storage-bucket
+- bucket_1064116177689_europe_north2_import_csv in ../.terraform-modules/storage-bucket
+- cicd in ../.terraform-modules/platform/cloud-build-pipeline
+- cicd.deployer_sa in ../.terraform-modules/service-account
+[31m[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to get existing workspaces: querying Cloud
+Storage failed: storage: bucket doesn't exist[0m
+[31m│[0m [0m
+[31m│[0m [0m[0m
+[31m╵[0m[0m
+[0m[0m
+
+✗ init failed with code 1
+
+✗ Init failed
+
+
+Import workflow incomplete.
+You can continue manually in: /Users/kristifrancis/Desktop/Solvigo/bluegaz/terraform
+
+
+? Return to main menu? (Y/n) 
