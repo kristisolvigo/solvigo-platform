@@ -279,7 +279,17 @@ def import_existing_project(gcp_project_id: str, client: str = None,
     # Generate Terraform configuration
     from solvigo.terraform.generator import generate_terraform_config
 
-    if not generate_terraform_config(client, project, selected, terraform_dir):
+    # For import, subdomains will be None (project not in database yet)
+    # Generator will fall back to slugified names
+    if not generate_terraform_config(
+        client,
+        project,
+        selected,
+        terraform_dir,
+        gcp_project_id,
+        client_subdomain=None,
+        project_subdomain=None
+    ):
         console.print("[red]✗ Failed to generate Terraform configuration[/red]\n")
         return
 
@@ -368,11 +378,13 @@ def import_existing_project(gcp_project_id: str, client: str = None,
 
                     # Register project in Solvigo registry
                     try:
-                        from solvigo.registry.client import RegistryClient
+                        from solvigo.admin.client import AdminClient
 
                         console.print("[cyan]Registering project in Solvigo registry...[/cyan]")
 
-                        registry = RegistryClient()
+                        # Note: import doesn't get context yet, so dev_mode isn't available here
+                        # TODO: Consider passing dev flag through import command
+                        registry = AdminClient()
 
                         # Prepare project data
                         client_slug = client.lower().replace(' ', '-')

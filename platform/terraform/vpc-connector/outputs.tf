@@ -1,14 +1,19 @@
-output "connector_name" {
-  description = "VPC connector name"
-  value       = google_vpc_access_connector.solvigo_connector.name
+output "connector_north1_name" {
+  description = "VPC connector name for europe-north1"
+  value       = google_vpc_access_connector.solvigo_connector_north1.name
 }
 
-output "connector_id" {
-  description = "VPC connector ID"
-  value       = google_vpc_access_connector.solvigo_connector.id
+output "connector_north1_id" {
+  description = "VPC connector ID for europe-north1"
+  value       = google_vpc_access_connector.solvigo_connector_north1.id
 }
 
-output "connector_self_link" {
-  description = "VPC connector self link (use in Cloud Run)"
-  value       = google_vpc_access_connector.solvigo_connector.self_link
+output "connector_north2_name" {
+  description = "VPC connector name for europe-north2"
+  value       = google_vpc_access_connector.solvigo_connector_north2.name
+}
+
+output "connector_north2_id" {
+  description = "VPC connector ID for europe-north2"
+  value       = google_vpc_access_connector.solvigo_connector_north2.id
 }

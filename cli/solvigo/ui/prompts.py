@@ -21,7 +21,7 @@ solvigo_style = Style([
 ])
 
 
-def main_menu(project_detected: bool = False, client: str = None, project: str = None) -> str:
+def main_menu(project_detected: bool = False, client: str = None, project: str = None, has_terraform: bool = False) -> str:
     """
     Display main menu and get user choice.
 
@@ -29,21 +29,28 @@ def main_menu(project_detected: bool = False, client: str = None, project: str =
         project_detected: Whether a project was detected
         client: Client name if detected
         project: Project name if detected
+        has_terraform: Whether terraform directory exists
 
     Returns:
         User's choice
     """
     if project_detected:
-        choices = [
-            '✨ Add services to Terraform',
-            '🚀 Deploy infrastructure',
-            '📊 View project status',
-            '🔧 Configure settings',
-            '🆕 Create new project',
-            '📁 Choose different project',
-            '📥 Import existing GCP project',
+        choices = []
+
+        # Only show "Generate Infrastructure" if terraform doesn't exist
+        if not has_terraform:
+            choices.append('⚙️ Generate infrastructure')
+
+        # Always show deploy if terraform exists
+        if has_terraform:
+            choices.append('🚀 Deploy infrastructure')
+
+        # Common options
+        choices.extend([
+            '🗑️ Delete from registry',
             '❌ Exit'
-        ]
+        ])
+
         message = f"What would you like to do with {client}/{project}?"
     else:
         choices = [

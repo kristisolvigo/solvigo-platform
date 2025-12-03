@@ -25,9 +25,11 @@ def show_status(context: dict):
     table.add_column("Status")
     table.add_column("Details")
 
-    # Check terraform
-    if context.get('has_terraform'):
-        table.add_row("Terraform", "[green]✓ Found[/green]", str(context['terraform_path']))
+    # Check terraform locally
+    from pathlib import Path
+    terraform_path = Path.cwd() / 'terraform'
+    if terraform_path.exists():
+        table.add_row("Terraform", "[green]✓ Found[/green]", str(terraform_path))
     else:
         table.add_row("Terraform", "[red]✗ Not found[/red]", "-")
 

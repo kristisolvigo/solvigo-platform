@@ -416,33 +416,35 @@ def get_platform_project_id() -> str:
     return "solvigo-platform-prod"
 
 
-def get_github_connection_id() -> Optional[str]:
+def get_github_connection_id(dev_mode: bool = False) -> Optional[str]:
     """
-    Get GitHub connection ID from environment or config.
+    Get GitHub connection ID from Admin API.
+
+    Args:
+        dev_mode: Whether running in dev mode
 
     Returns:
-        GitHub connection ID or None if not found
+        GitHub connection resource name or None
     """
-    # Try environment variable first
-    connection_id = os.getenv('SOLVIGO_GITHUB_CONNECTION_ID')
-    if connection_id:
-        return connection_id
+    from solvigo.admin.client import AdminClient
 
-    # Try reading from .solvigo_config
-    config_file = Path.cwd() / '.solvigo_config'
-    if config_file.exists():
-        try:
-            with open(config_file, 'r') as f:
-                for line in f:
-                    if line.startswith('export SOLVIGO_GITHUB_CONNECTION_ID='):
-                        value = line.split('=')[1].strip().strip('"')
-                        return value
-        except Exception:
-            pass
+    try:
+        admin_client = AdminClient(dev_mode=dev_mode)
 
-    # Not found
-    console.print("\n[yellow]⚠ GitHub connection ID not found[/yellow]")
-    console.print("[dim]You need to set up the platform GitHub connection first:[/dim]")
-    console.print("[dim]  cd platform/terraform/cloud-build[/dim]")
-    console.print("[dim]  terraform apply[/dim]\n")
-    return None
+        # Call Admin API to get platform configuration
+        platform_config = admin_client.get_platform_config()
+
+        # Extract GitHub connection from config
+        github_connection = platform_config.get('github_connection')
+
+        if github_connection:
+            return github_connection
+        else:
+            console.print("\n[yellow]⚠ GitHub connection not configured in platform[/yellow]")
+            console.print("[dim]Contact platform admin to set up GitHub connection[/dim]\n")
+            return None
+
+    except Exception as e:
+        console.print(f"\n[yellow]⚠ Failed to fetch platform config: {e}[/yellow]")
+        console.print("[dim]Make sure Admin API is accessible[/dim]\n")
+        return None

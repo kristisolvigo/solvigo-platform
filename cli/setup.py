@@ -32,6 +32,7 @@ setup(
         "questionary>=2.0.0",
         "google-cloud-resource-manager>=1.12.0",
         "google-cloud-run>=0.10.0",
+        "google-cloud-build>=3.22.0",
         "cloud-sql-python-connector>=1.18.5",
         "google-cloud-storage>=2.14.0",
         "google-cloud-secret-manager>=2.18.0",

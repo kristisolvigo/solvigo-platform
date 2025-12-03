@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 import logging
 import time
 
-from app.routers import clients, projects, subdomains
+from app.routers import clients, projects, subdomains, platform
 from app import __version__
 
 # Configure logging
@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="Solvigo Registry API",
-    description="Central registry for managing Solvigo client projects",
+    title="Solvigo Admin API",
+    description="Central admin API for managing Solvigo client projects",
     version=__version__,
     docs_url="/docs",
     redoc_url="/redoc"
@@ -56,6 +56,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(clients.router, prefix="/api/v1/clients", tags=["clients"])
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
 app.include_router(subdomains.router, prefix="/api/v1/subdomains", tags=["subdomains"])
+app.include_router(platform.router, prefix="/api/v1/platform", tags=["platform"])
 
 
 # Health check endpoint
@@ -65,7 +66,7 @@ def health_check():
     return {
         "status": "healthy",
         "version": __version__,
-        "service": "registry-api"
+        "service": "admin-api"
     }
 
 
@@ -74,7 +75,7 @@ def health_check():
 def root():
     """API information"""
     return {
-        "service": "Solvigo Registry API",
+        "service": "Solvigo Admin API",
         "version": __version__,
         "docs": "/docs",
         "health": "/health"

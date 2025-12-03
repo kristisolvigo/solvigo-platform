@@ -89,3 +89,4 @@ temp/
 # OS
 .DS_Store
 Thumbs.db
+cli/.venv

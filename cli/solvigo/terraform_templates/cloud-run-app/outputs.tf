@@ -20,7 +20,7 @@ output "service_location" {
 
 output "service_account_email" {
   description = "Service account email used by Cloud Run"
-  value       = local.service_account_email
+  value       = var.service_account_email
 }
 
 output "latest_revision" {

@@ -15,19 +15,23 @@ console = Console()
 
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__)
+@click.option('--dev', is_flag=True, help='Run in development mode (connect to local Admin API)')
 @click.pass_context
-def cli(ctx):
+def cli(ctx, dev):
     """
     Solvigo CLI - Interactive tool for managing client projects on GCP
 
     Run without arguments for interactive mode.
     """
+    ctx.ensure_object(dict)
+    ctx.obj['dev'] = dev
+
     if ctx.invoked_subcommand is None:
         # No subcommand provided - run interactive mode
-        run_interactive()
+        run_interactive(ctx)
 
 
-def run_interactive():
+def run_interactive(ctx=None):
     """Run the interactive CLI mode"""
     try:
         # Welcome banner
@@ -42,9 +46,23 @@ def run_interactive():
         from solvigo.utils.git import verify_git_repo_or_exit
         git_info = verify_git_repo_or_exit()
 
-        # Detect context
-        context = detect_project_context()
+        # Authenticate user (optional - gracefully degrade if fails)
+        from solvigo.services.cli_auth_service import CLIAuthService
+
+        try:
+            user_email = CLIAuthService.ensure_authenticated()
+            console.print(f"[dim]✓ Authenticated as: {user_email}[/dim]\n")
+        except Exception as e:
+            console.print(f"[yellow]⚠ Could not authenticate: {e}[/yellow]")
+            console.print("[dim]Some features may be limited.[/dim]\n")
+            user_email = None
+
+        # Detect context (pass dev flag to query correct API)
+        dev_mode = ctx.obj.get('dev', False) if ctx and ctx.obj else False
+        context = detect_project_context(dev_mode=dev_mode)
         context['git'] = git_info  # Add git info to context
+        context['user_email'] = user_email
+        context['dev'] = dev_mode
 
         # Run interactive mode
         interactive_mode(context)
@@ -131,12 +149,16 @@ def deploy(env):
         solvigo deploy --env prod
     """
     from solvigo.commands.deploy import deploy_infrastructure
+    from pathlib import Path
 
     context = detect_project_context()
     if not context['exists']:
         console.print("[red]Error:[/red] No project detected in current directory")
         console.print("Run [cyan]solvigo init[/cyan] to create a new project")
         return
+
+    # Set terraform_path in context (use current directory)
+    context['terraform_path'] = Path.cwd() / 'terraform'
 
     deploy_infrastructure(context, environment=env)
 

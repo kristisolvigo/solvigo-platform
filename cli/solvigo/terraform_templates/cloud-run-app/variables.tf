@@ -92,9 +92,8 @@ variable "allow_unauthenticated" {
 }
 
 variable "service_account_email" {
-  description = "Service account email (creates new if empty)"
+  description = "Service account email for Cloud Run (required)"
   type        = string
-  default     = ""
 }
 
 variable "vpc_connector_name" {

@@ -85,3 +85,9 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+variable "app_service_account_email" {
+  description = "Application service account email for IAM database authentication"
+  type        = string
+  default     = null
+}

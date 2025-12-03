@@ -11,6 +11,9 @@ async def verify_gcp_token(authorization: str = Header(...)) -> str:
     """
     Verify GCP ID token and return user email.
 
+    In dev mode (DEV_MODE=true), bypasses token validation.
+    In production, validates GCP ID token.
+
     Args:
         authorization: Authorization header (Bearer token)
 
@@ -20,6 +23,17 @@ async def verify_gcp_token(authorization: str = Header(...)) -> str:
     Raises:
         HTTPException: If token is invalid or missing
     """
+    import os
+
+    # Check if in dev mode
+    dev_mode = os.getenv('DEV_MODE', 'false').lower() == 'true'
+
+    if dev_mode:
+        # In dev mode, bypass token validation
+        logger.info("DEV MODE: Bypassing token validation")
+        return "dev-user@solvigo.ai"
+
+    # Production mode - validate token
     try:
         # Extract token from "Bearer <token>" format
         if not authorization.startswith('Bearer '):

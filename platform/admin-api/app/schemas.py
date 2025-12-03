@@ -165,3 +165,49 @@ class SubdomainMappingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Platform operations schemas
+class EnvironmentTriggerConfig(BaseModel):
+    """Configuration for a Cloud Build trigger for one environment"""
+    name: str
+    branch_pattern: Optional[str] = None
+    tag_pattern: Optional[str] = None
+    cloudbuild_file: str
+    require_approval: bool = False
+
+
+class TriggerConfig(BaseModel):
+    """Configuration for creating Cloud Build triggers"""
+    github_repo_url: str
+    environments: List[EnvironmentTriggerConfig]
+
+
+class ServiceConfig(BaseModel):
+    """Service configuration for CI/CD"""
+    name: str
+    type: str  # "backend" or "frontend"
+    cloudbuild_file: str
+
+
+class EnhancedTriggerConfig(BaseModel):
+    """Enhanced configuration for creating Cloud Build triggers"""
+    github_repo_url: str
+    services: List[ServiceConfig]
+    environments: List[EnvironmentTriggerConfig]
+
+
+class VPCConfig(BaseModel):
+    """Configuration for VPC peering setup"""
+    client_project_id: str
+    region: str = "europe-north1"
+
+
+class GCPErrorDetail(BaseModel):
+    """Structured error detail for GCP operations"""
+    error_type: str
+    message: str
+    gcp_error_code: Optional[str] = None
+    required_permissions: Optional[List[str]] = None
+    remediation: Optional[str] = None
+    resource_name: Optional[str] = None

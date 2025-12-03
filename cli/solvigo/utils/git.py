@@ -139,3 +139,43 @@ def verify_git_repo_or_exit() -> Dict[str, str]:
         exit(0)
 
     return git_info
+
+
+def get_git_remote_url() -> Optional[str]:
+    """
+    Get the GitHub URL from git remote, normalized to HTTPS format.
+
+    Returns:
+        Normalized GitHub URL (HTTPS, without .git suffix) or None
+
+    Examples:
+        git@github.com:Solvigo/repo.git -> https://github.com/Solvigo/repo
+        https://github.com/Solvigo/repo.git -> https://github.com/Solvigo/repo
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'config', '--get', 'remote.origin.url'],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5
+        )
+        url = result.stdout.strip()
+
+        if not url:
+            return None
+
+        # Normalize URL (handle both SSH and HTTPS)
+        # git@github.com:Solvigo/repo.git -> https://github.com/Solvigo/repo
+        # https://github.com/Solvigo/repo.git -> https://github.com/Solvigo/repo
+        if url.startswith('git@github.com:'):
+            url = url.replace('git@github.com:', 'https://github.com/')
+
+        # Remove .git suffix
+        if url.endswith('.git'):
+            url = url[:-4]
+
+        return url
+
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None

@@ -9,6 +9,31 @@ from rich.console import Console
 console = Console()
 
 
+def generate_migration_step(service_type: str, project_slug: str) -> str:
+    """Generate migration job execution step (only for backend)"""
+    if service_type != 'backend':
+        return ""
+
+    job_name = f"{project_slug}-db-migrations"
+
+    return f"""
+  # Step 4: Run database migrations
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'run-migrations'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'execute'
+      - '{job_name}'
+      - '--region=$_REGION'
+      - '--project=$_GCP_PROJECT'
+      - '--wait'
+    waitFor: ['deploy-cloudrun']
+    timeout: '600s'
+"""
+
+
 def format_hcl_list(items: List[str]) -> str:
     """
     Convert Python list to HCL-compatible list format.
@@ -67,7 +92,7 @@ data "terraform_remote_state" "platform_cloudbuild" {
 
 # Setup CI/CD pipeline
 module "cicd" {
-  source = "../.terraform-modules/platform/cloud-build-pipeline"
+  source = "./modules/platform/cloud-build-pipeline"
 
   client_name         = "{{ client }}"
   project_name        = "{{ project }}"
@@ -128,7 +153,8 @@ def generate_cloudbuild_yaml(
     dockerfile_path: str,
     client: str,
     project: str,
-    output_dir: Path
+    output_dir: Path,
+    has_database: bool = False
 ) -> bool:
     """
     Generate cloudbuild.yaml file for Cloud Build.
@@ -236,9 +262,9 @@ steps:
       # - '--cpu=1'
       # - '--memory=256Mi'{% endif %}
     waitFor: ['push-image']
-    timeout: '300s'
-
-  # Step 4 (Optional): Run smoke tests
+    timeout: '900s'
+{{ migration_step }}
+  # Step 5 (Optional): Run smoke tests
   # Uncomment to enable:
   # - name: 'gcr.io/cloud-builders/curl'
   #   id: 'smoke-test'
@@ -258,6 +284,16 @@ images:
         client_slug = client.lower().replace(' ', '-')
         domain = f"{client_slug}.solvigo.ai"
 
+        # Generate project slug for migration job name
+        import re
+        project_slug = project.lower().replace(' ', '-').replace('_', '-')
+        project_slug = re.sub(r'[^a-z0-9-]', '', project_slug)
+
+        # Generate migration step if backend and has database
+        migration_step = ""
+        if has_database:
+            migration_step = generate_migration_step(service_type, project_slug)
+
         content = template.render(
             service_name=service_name,
             service_type=service_type,
@@ -265,7 +301,8 @@ images:
             dockerfile_dir=dockerfile_dir,
             client=client,
             project=project,
-            domain=domain
+            domain=domain,
+            migration_step=migration_step
         )
 
         # Determine output filename
@@ -295,17 +332,20 @@ def generate_all_cicd_files(
     services: List[Dict],
     environments: List[str],
     terraform_dir: Path,
-    app_dir: Path = None
+    app_dir: Path = None,
+    has_database: bool = False
 ) -> bool:
     """
-    Generate all CI/CD files (cicd.tf and cloudbuild.yaml files).
+    Generate CI/CD files (cloudbuild.yaml files only).
+
+    Note: cicd.tf is no longer generated - triggers are created via Admin API
 
     Args:
         client: Client name
         project: Project name
         platform_project_id: Platform project ID
         client_project_id: Client project ID
-        github_connection_id: GitHub connection ID
+        github_connection_id: GitHub connection ID (unused, kept for compatibility)
         github_repo_url: GitHub repository URL
         services: List of service configurations
         environments: List of environments
@@ -317,25 +357,12 @@ def generate_all_cicd_files(
     """
     console.print("\n[cyan]📝 Generating CI/CD configuration...[/cyan]\n")
 
-    # Generate cicd.tf
-    success = generate_cicd_tf(
-        client=client,
-        project=project,
-        platform_project_id=platform_project_id,
-        client_project_id=client_project_id,
-        github_connection_id=github_connection_id,
-        github_repo_url=github_repo_url,
-        environments=environments,
-        output_dir=terraform_dir
-    )
+    # REMOVED: generate_cicd_tf() call
+    # Triggers are now created via Admin API, not Terraform
 
-    if not success:
-        return False
-
-    # Generate cloudbuild.yaml files
-    # Default to terraform_dir parent if app_dir not provided
+    # Generate cloudbuild.yaml files in cicd/ directory
     if app_dir is None:
-        app_dir = terraform_dir.parent / 'app'
+        app_dir = terraform_dir.parent / 'cicd'
         app_dir.mkdir(parents=True, exist_ok=True)
 
     for service in services:
@@ -345,13 +372,14 @@ def generate_all_cicd_files(
             dockerfile_path=service['dockerfile'],
             client=client,
             project=project,
-            output_dir=app_dir
+            output_dir=app_dir,
+            has_database=has_database
         )
         if not success:
             return False
 
-    console.print(f"\n[green]✓ CI/CD configuration generated successfully[/green]\n")
-    console.print(f"[dim]Terraform:[/dim] {terraform_dir / 'cicd.tf'}")
-    console.print(f"[dim]Build configs:[/dim] {app_dir}/cloudbuild*.yaml\n")
+    console.print(f"\n[green]✓ CI/CD build configs generated successfully[/green]\n")
+    console.print(f"[dim]Build configs:[/dim] {app_dir}/cloudbuild*.yaml")
+    console.print(f"[dim]Note: Cloud Build triggers will be created via Admin API[/dim]\n")
 
     return True

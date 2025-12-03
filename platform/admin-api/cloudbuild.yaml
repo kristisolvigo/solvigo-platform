@@ -7,7 +7,7 @@ options:
 timeout: '1200s'
 
 substitutions:
-  _SERVICE_NAME: 'registry-api'
+  _SERVICE_NAME: 'admin-api'
   _REGION: 'europe-north1'
   _IMAGE_TAG: '$SHORT_SHA'
 
@@ -18,11 +18,11 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:$_IMAGE_TAG'
+      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/admin-api:$_IMAGE_TAG'
       - '-t'
-      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:latest'
+      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/admin-api:latest'
       - '.'
-    dir: 'platform/registry-api'
+    dir: 'platform/admin-api'
 
   # Step 2: Push to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -30,7 +30,7 @@ steps:
     args:
       - 'push'
       - '--all-tags'
-      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api'
+      - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/admin-api'
     waitFor: ['build']
 
   # Step 3: Deploy to Cloud Run
@@ -41,7 +41,7 @@ steps:
       - 'run'
       - 'deploy'
       - '$_SERVICE_NAME'
-      - '--image=europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:$_IMAGE_TAG'
+      - '--image=europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/admin-api:$_IMAGE_TAG'
       - '--region=$_REGION'
       - '--platform=managed'
       - '--allow-unauthenticated'  # Public for load balancer to query subdomains
@@ -57,5 +57,5 @@ steps:
     waitFor: ['push']
 
 images:
-  - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:$_IMAGE_TAG'
-  - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/registry-api:latest'
+  - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/admin-api:$_IMAGE_TAG'
+  - 'europe-north2-docker.pkg.dev/$PROJECT_ID/solvigo-platform/admin-api:latest'

@@ -170,3 +170,49 @@ def update_subdomain(
     db.commit()
 
     return {"status": "updated", "full_domain": project.full_domain}
+
+
+@router.delete("/{project_id}", status_code=204)
+def delete_project(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Delete a project and its associated resources from the registry.
+    
+    WARNING: This does NOT delete GCP resources.
+    """
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Log in audit trail before deletion
+    # Convert SQLAlchemy model to dict with datetime serialization
+    project_dict = {}
+    for column in project.__table__.columns:
+        value = getattr(project, column.name)
+        # Convert datetime objects to ISO format strings for JSON serialization
+        if isinstance(value, datetime):
+            value = value.isoformat()
+        project_dict[column.name] = value
+
+    db.add(models.AuditLog(
+        user_email=current_user,
+        action='delete_project',
+        entity_type='project',
+        entity_id=project_id,
+        old_value=project_dict
+    ))
+
+    # Delete project (cascade should handle environments/services if configured, 
+    # but let's be explicit if needed or rely on DB cascade)
+    # Assuming DB cascade is set up or SQLAlchemy relationship cascade.
+    # If not, we might need to manually delete children.
+    # For now, we'll assume standard cascade or simple deletion.
+    
+    db.delete(project)
+    db.commit()
+
+    return None

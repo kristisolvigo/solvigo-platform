@@ -22,6 +22,11 @@ def add_services_to_existing_project(context: dict):
 
     client = context.get('client')
     project = context.get('project')
+    gcp_project_id = context.get('gcp_project_id')
+
+    if not gcp_project_id:
+        console.print("[red]✗ No GCP project ID found. Run 'solvigo status' to verify context.[/red]")
+        return
 
     # List all accessible projects
     console.print("[cyan]🔍 Listing your GCP projects...[/cyan]\n")
@@ -112,7 +117,8 @@ def add_services_to_existing_project(context: dict):
         console.print("\n[yellow]No terraform directory found - creating from scratch[/yellow]\n")
 
         # Ask where to generate
-        terraform_dir = context['path'] / 'terraform'
+        from pathlib import Path
+        terraform_dir = Path.cwd() / 'terraform'
 
         if confirm_action(f"Create terraform directory at {terraform_dir}?", default=True):
             terraform_dir.mkdir(parents=True, exist_ok=True)
@@ -120,7 +126,7 @@ def add_services_to_existing_project(context: dict):
             # Generate complete configuration (like import)
             from solvigo.terraform.generator import generate_terraform_config
 
-            if not generate_terraform_config(client, project, selected, terraform_dir):
+            if not generate_terraform_config(client, project, selected, terraform_dir, gcp_project_id):
                 console.print("[red]✗ Failed to generate Terraform configuration[/red]\n")
                 return
         else:

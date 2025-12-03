@@ -7,82 +7,78 @@ import re
 from typing import Dict, Optional
 
 
-def detect_project_context() -> Dict[str, any]:
+def detect_project_context(dev_mode: bool = False) -> Dict[str, any]:
     """
-    Detect if running from within a Solvigo project directory.
+    Detect project by querying API with GitHub URL.
+
+    This is the new architecture where the database is the source of truth.
+    Projects are identified by their GitHub repository URL.
+
+    Args:
+        dev_mode: Whether to use local dev API (http://localhost:8081)
 
     Returns:
         dict: Context information with keys:
             - exists (bool): Whether a project was detected
-            - client (str): Client name
-            - project (str): Project name
-            - path (Path): Project directory path
-            - terraform_path (Path): Path to terraform directory
-            - has_terraform (bool): Whether terraform directory exists
+            - client (str): Client ID from database
+            - project (str): Project ID from database
+            - github_url (str): GitHub repository URL
+            - gcp_project_id (str): GCP project ID
+            - project_data (dict): Full project details from API
+            - error (str): Error message if detection failed
     """
-    cwd = Path.cwd()
+    from solvigo.utils.git import get_git_remote_url
 
-    # Check if we're in the clients/ structure
-    # Pattern: clients/{client}/{project}/
-    if 'clients' in cwd.parts:
-        client_idx = cwd.parts.index('clients')
-
-        # We need at least clients/{client}/{project}
-        if len(cwd.parts) > client_idx + 2:
-            client = cwd.parts[client_idx + 1]
-            project = cwd.parts[client_idx + 2]
-
-            # Find the project root (clients/{client}/{project}/)
-            project_root = Path('/'.join(cwd.parts[:client_idx + 3]))
-            terraform_path = project_root / 'terraform'
-
+    # Get GitHub URL from git remote
+    try:
+        github_url = get_git_remote_url()
+        if not github_url:
             return {
-                'exists': True,
-                'client': client,
-                'project': project,
-                'path': project_root,
-                'terraform_path': terraform_path,
-                'has_terraform': terraform_path.exists(),
-                'current_dir': cwd
+                'exists': False,
+                'error': 'No git remote found. Run: git remote add origin <url>'
+            }
+    except Exception as e:
+        return {
+            'exists': False,
+            'error': f'Git error: {e}'
+        }
+
+    # Query API for project with this GitHub URL
+    try:
+        from solvigo.admin.client import AdminClient
+
+        client = AdminClient(dev_mode=dev_mode)
+        projects = client.list_projects(github_repo=github_url)
+
+        if not projects:
+            return {
+                'exists': False,
+                'github_url': github_url,
+                'error': 'No project found in registry for this repository.\nRun: solvigo init  to register this project.'
             }
 
-    # Check if terraform/ exists in current directory
-    # This handles the case where we're AT clients/{client}/{project}/
-    terraform_path = cwd / 'terraform'
-    if terraform_path.exists():
-        # Try to infer from directory structure
-        if 'clients' in cwd.parts:
-            client_idx = cwd.parts.index('clients')
-            if len(cwd.parts) > client_idx + 2:
-                return {
-                    'exists': True,
-                    'client': cwd.parts[client_idx + 1],
-                    'project': cwd.parts[client_idx + 2],
-                    'path': cwd,
-                    'terraform_path': terraform_path,
-                    'has_terraform': True,
-                    'current_dir': cwd
-                }
+        # Use first matching project
+        project = projects[0]
 
-        # Try to parse from terraform backend.tf
-        backend_config = parse_backend_config(terraform_path / 'backend.tf')
-        if backend_config:
-            return {
-                'exists': True,
-                'client': backend_config.get('client'),
-                'project': backend_config.get('project'),
-                'path': cwd,
-                'terraform_path': terraform_path,
-                'has_terraform': True,
-                'current_dir': cwd,
-                'inferred': True
-            }
+        return {
+            'exists': True,
+            'client': project['client_id'],
+            'project': project['id'],
+            'github_url': github_url,
+            'gcp_project_id': project.get('gcp_project_id'),
+            'full_domain': project.get('full_domain'),
+            'project_type': project.get('project_type'),
+            'client_subdomain': project.get('client_subdomain'),
+            'project_subdomain': project.get('subdomain'),
+            'project_data': project  # Full project details from API
+        }
 
-    # No project detected
-    return {
-        'exists': False,
-        'current_dir': cwd
-    }
+    except Exception as e:
+        return {
+            'exists': False,
+            'github_url': github_url,
+            'error': f'API error: {e}\nTip: Run with --dev flag to use local API'
+        }
 
 
 def parse_backend_config(backend_file: Path) -> Optional[Dict[str, str]]:

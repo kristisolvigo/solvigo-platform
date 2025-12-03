@@ -8,19 +8,6 @@ terraform {
   }
 }
 
-locals {
-  service_account_email = var.service_account_email != "" ? var.service_account_email : google_service_account.cloud_run_sa[0].email
-}
-
-# Service account for Cloud Run (if not provided)
-resource "google_service_account" "cloud_run_sa" {
-  count = var.service_account_email == "" ? 1 : 0
-
-  account_id   = "${var.service_name}-sa"
-  display_name = "Service account for ${var.service_name}"
-  project      = var.project_id
-}
-
 # Cloud Run service
 resource "google_cloud_run_service" "service" {
   name     = var.service_name
@@ -29,7 +16,7 @@ resource "google_cloud_run_service" "service" {
 
   template {
     spec {
-      service_account_name = local.service_account_email
+      service_account_name = var.service_account_email
 
       containers {
         image = var.image
@@ -66,15 +53,6 @@ resource "google_cloud_run_service" "service" {
 
         ports {
           container_port = var.port
-        }
-      }
-
-      # VPC Access connector (if using Shared VPC)
-      dynamic "vpc_access" {
-        for_each = var.vpc_connector_name != "" ? [1] : []
-        content {
-          connector = var.vpc_connector_name
-          egress    = "all-traffic"
         }
       }
 
@@ -142,5 +120,5 @@ resource "google_secret_manager_secret_iam_member" "secret_access" {
   project   = var.project_id
   secret_id = each.value
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${local.service_account_email}"
+  member    = "serviceAccount:${var.service_account_email}"
 }

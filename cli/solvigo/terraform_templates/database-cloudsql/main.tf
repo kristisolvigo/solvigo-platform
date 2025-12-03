@@ -50,6 +50,11 @@ resource "google_sql_database_instance" "instance" {
     }
 
     database_flags {
+      name  = "cloudsql.iam_authentication"
+      value = "on"
+    }
+
+    database_flags {
       name  = "max_connections"
       value = var.max_connections
     }
@@ -95,4 +100,16 @@ resource "google_sql_user" "root" {
   instance = google_sql_database_instance.instance.name
   password = random_password.root_password.result
   project  = var.project_id
+}
+
+# Create IAM user for application service account
+resource "google_sql_user" "app_iam_user" {
+  count = var.app_service_account_email != null ? 1 : 0
+
+  name     = var.app_service_account_email
+  instance = google_sql_database_instance.instance.name
+  type     = "CLOUD_IAM_SERVICE_ACCOUNT"
+  project  = var.project_id
+
+  depends_on = [google_sql_database_instance.instance]
 }

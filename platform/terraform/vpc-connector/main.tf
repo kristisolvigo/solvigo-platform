@@ -14,7 +14,6 @@ terraform {
 
 provider "google" {
   project = var.project_id
-  region  = var.region
 }
 
 # Get the VPC network
@@ -23,33 +22,54 @@ data "google_compute_network" "shared_vpc" {
   project = var.project_id
 }
 
-# Create dedicated subnet for VPC connector
-resource "google_compute_subnetwork" "vpc_connector_subnet" {
-  name          = var.connector_subnet_name
-  ip_cidr_range = "10.8.0.0/28"  # 16 IPs (minimum for VPC connector)
-  region        = var.region
+# VPC Connector for europe-north1
+resource "google_compute_subnetwork" "vpc_connector_subnet_north1" {
+  name          = "vpc-connector-subnet-north1"
+  ip_cidr_range = "10.8.0.0/28"
+  region        = "europe-north1"
   network       = data.google_compute_network.shared_vpc.id
   project       = var.project_id
 
-  description = "Subnet for VPC Access Connector (Cloud Run → private resources)"
+  description = "Subnet for VPC Access Connector in europe-north1"
 }
 
-# Create VPC Access Connector for Cloud Run to access private resources
-resource "google_vpc_access_connector" "solvigo_connector" {
+resource "google_vpc_access_connector" "solvigo_connector_north1" {
   name    = "solvigo-vpc-connector"
-  region  = var.region
+  region  = "europe-north1"
   project = var.project_id
 
-  # Use the dedicated subnet
   subnet {
-    name       = google_compute_subnetwork.vpc_connector_subnet.name
+    name       = google_compute_subnetwork.vpc_connector_subnet_north1.name
     project_id = var.project_id
   }
 
-  # Machine type (e2-micro for cost efficiency)
-  machine_type = "e2-micro"
+  machine_type  = "e2-micro"
+  min_instances = 2
+  max_instances = 3
+}
 
-  # Number of instances (2-10)
+# VPC Connector for europe-north2
+resource "google_compute_subnetwork" "vpc_connector_subnet_north2" {
+  name          = "vpc-connector-subnet-north2"
+  ip_cidr_range = "10.8.1.0/28"
+  region        = "europe-north2"
+  network       = data.google_compute_network.shared_vpc.id
+  project       = var.project_id
+
+  description = "Subnet for VPC Access Connector in europe-north2"
+}
+
+resource "google_vpc_access_connector" "solvigo_connector_north2" {
+  name    = "solvigo-connector-n2"
+  region  = "europe-north2"
+  project = var.project_id
+
+  subnet {
+    name       = google_compute_subnetwork.vpc_connector_subnet_north2.name
+    project_id = var.project_id
+  }
+
+  machine_type  = "e2-micro"
   min_instances = 2
   max_instances = 3
 }
