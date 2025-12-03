@@ -103,10 +103,11 @@ resource "google_sql_user" "root" {
 }
 
 # Create IAM user for application service account
+# Note: For Cloud SQL IAM users, the name must NOT include .gserviceaccount.com suffix
 resource "google_sql_user" "app_iam_user" {
   count = var.app_service_account_email != null ? 1 : 0
 
-  name     = var.app_service_account_email
+  name     = replace(var.app_service_account_email, ".gserviceaccount.com", "")
   instance = google_sql_database_instance.instance.name
   type     = "CLOUD_IAM_SERVICE_ACCOUNT"
   project  = var.project_id

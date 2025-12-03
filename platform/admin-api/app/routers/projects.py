@@ -77,14 +77,19 @@ def register_project(
 def list_projects(
     client_id: Optional[str] = None,
     status: Optional[str] = 'active',
+    github_repo: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
-    List all projects, optionally filtered by client.
+    List all projects, optionally filtered by client or github_repo.
 
     Public endpoint (no auth required) for load balancer to query.
     """
-    query = db.query(models.Project)
+    # Join with clients table to get client subdomain
+    query = db.query(models.Project).join(
+        models.Client,
+        models.Project.client_id == models.Client.id
+    )
 
     if client_id:
         query = query.filter(models.Project.client_id == client_id)
@@ -92,7 +97,19 @@ def list_projects(
     if status:
         query = query.filter(models.Project.status == status)
 
-    return query.all()
+    if github_repo:
+        query = query.filter(models.Project.github_repo == github_repo)
+
+    projects = query.all()
+
+    # Manually build response with client_subdomain
+    return [
+        {
+            **project.__dict__,
+            'client_subdomain': project.client.subdomain  # Add client subdomain
+        }
+        for project in projects
+    ]
 
 
 @router.get("/{project_id}", response_model=schemas.ProjectDetail)
@@ -100,14 +117,19 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
     """
     Get project details with all related environments and services.
     """
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    # Join with clients table to get client subdomain
+    project = db.query(models.Project).join(
+        models.Client,
+        models.Project.client_id == models.Client.id
+    ).filter(models.Project.id == project_id).first()
 
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Build detailed response
+    # Build detailed response with client_subdomain
     return {
         **project.__dict__,
+        'client_subdomain': project.client.subdomain,  # Add client subdomain
         'environments': [
             {
                 'id': env.id,

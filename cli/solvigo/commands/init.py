@@ -448,7 +448,7 @@ def interactive_create_project():
         console.print(f"[yellow]⚠ Could not list clients: {e}[/yellow]")
         clients = []
 
-    client_choices = [c['name'] for c in clients]
+    client_choices = [f"{c['name']} ({c['id']})" for c in clients]
     client_choices.append("➕ Create new client")
 
     client_choice = select_option("Select Client:", choices=client_choices)
@@ -456,32 +456,42 @@ def interactive_create_project():
     if client_choice == "➕ Create new client":
         client_name = text_input("New Client Name:")
         client_slug = client_name.lower().replace(' ', '-')
-        
+        client_id = client_slug
+        client_subdomain = client_slug
+
         # Register client
         try:
             registry.register_client({
-                'id': client_slug,
+                'id': client_id,
                 'name': client_name,
-                'subdomain': client_slug
+                'subdomain': client_subdomain
             })
             console.print(f"[green]✓ Client '{client_name}' registered[/green]\n")
         except Exception as e:
             console.print(f"[red]✗ Failed to register client: {e}[/red]")
             return
     else:
-        client_name = client_choice
-        client_slug = client_name.lower().replace(' ', '-')
+        # Use existing client - fetch full details to get subdomain
+        client_id = client_choice.split('(')[1].rstrip(')')
+        try:
+            client_details = registry.get_client(client_id)
+            client_name = client_details['name']
+            client_subdomain = client_details['subdomain']
+            client_slug = client_subdomain  # Use subdomain for backward compatibility
+        except Exception as e:
+            console.print(f"[red]✗ Failed to fetch client details: {e}[/red]")
+            return
 
     # 3. Project Details
     project_name = text_input("Project Name:")
     project_slug = project_name.lower().replace(' ', '-')
     
-    subdomain = text_input(f"Subdomain ({project_slug}.{client_slug}.solvigo.ai):", default=project_slug)
+    subdomain = text_input(f"Subdomain ({project_slug}.{client_subdomain}.solvigo.ai):", default=project_slug)
 
     # Build context for infrastructure generation
     context = {
         'client': client_name,
-        'project': f"{client_slug}-{project_slug}",
+        'project': f"{client_subdomain}-{project_slug}",
         'gcp_project_id': gcp_project_id,
         'github_url': '',  # Will be prompted in shared function
         'path': str(prompt_repository_location(client_name, project_name))
@@ -509,7 +519,7 @@ def interactive_create_project():
         env_data = []
         for env_name in environments:
             env_data.append({
-                'project_id': f"{client_slug}-{project_slug}",
+                'project_id': f"{client_subdomain}-{project_slug}",
                 'name': env_name,
                 'database_instance': f"{project_slug}-db-{env_name}" if env_name != 'prod' else f"{project_slug}-db",
                 'database_type': 'postgresql' if 'PostgreSQL' in database_choice else 'mysql' if 'MySQL' in database_choice else 'none',
@@ -523,7 +533,7 @@ def interactive_create_project():
             for env_name in environments:
                 svc_suffix = f"-{env_name}" if env_name != 'prod' else ""
                 svc_data.append({
-                    'project_id': f"{client_slug}-{project_slug}",
+                    'project_id': f"{client_subdomain}-{project_slug}",
                     'name': f"{svc['name']}{svc_suffix}",
                     'type': svc['type'],
                     'environment': env_name,
@@ -534,11 +544,11 @@ def interactive_create_project():
                 })
 
         registry.register_project({
-            'id': f"{client_slug}-{project_slug}",
-            'client_id': client_slug,
+            'id': f"{client_subdomain}-{project_slug}",
+            'client_id': client_id,
             'name': project_name,
             'subdomain': subdomain,
-            'full_domain': f"{subdomain}.{client_slug}.solvigo.ai",
+            'full_domain': f"{subdomain}.{client_subdomain}.solvigo.ai",
             'gcp_project_id': gcp_project_id,
             'github_repo': github_repo_url,
             'terraform_state_bucket': bucket_name,

@@ -437,8 +437,14 @@ def handle_register_current_project(context: dict):
             console.print(f"[red]✗ Failed to create client: {e}[/red]")
             return
     else:
-        # Use existing client
+        # Use existing client - fetch full details to get subdomain
         client_id = client_choice.split('(')[1].rstrip(')')
+        try:
+            client_details = registry.get_client(client_id)
+            client_subdomain = client_details['subdomain']
+        except Exception as e:
+            console.print(f"[red]✗ Failed to fetch client details: {e}[/red]")
+            return
 
     # Step 3: Create Project
     console.print("[bold]Step 3: Create Project[/bold]\n")
@@ -446,11 +452,11 @@ def handle_register_current_project(context: dict):
     project_display_name = text_input("Project display name (e.g., 'Customer Portal'):")
     project_subdomain = text_input("Project subdomain (lowercase, no spaces, e.g., 'portal'):")
 
-    # Generate project ID: client-project
-    project_id = f"{client_id}-{project_subdomain}"
+    # Generate project ID: client_subdomain-project_subdomain (shorter format)
+    project_id = f"{client_subdomain}-{project_subdomain}"
 
-    # Full domain
-    full_domain = f"{project_subdomain}.{client_id}.solvigo.ai"
+    # Full domain - use client_subdomain, not client_id
+    full_domain = f"{project_subdomain}.{client_subdomain}.solvigo.ai"
 
     # Step 4: Save to Database
     console.print(f"\n[yellow]Registering project in database...[/yellow]\n")

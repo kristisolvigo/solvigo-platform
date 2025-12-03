@@ -401,11 +401,19 @@ def import_existing_project(gcp_project_id: str, client: str = None,
                             # Client might already exist, that's ok
                             pass
 
+                        # Fetch client details to get actual subdomain
+                        try:
+                            client_details = registry.get_client(client_slug)
+                            client_subdomain = client_details['subdomain']
+                        except Exception:
+                            # If fetch fails, fall back to client_slug
+                            client_subdomain = client_slug
+
                         # Prepare environment data
                         env_data = []
                         for env_name in environments:
                             env_data.append({
-                                'project_id': f"{client_slug}-{project_slug}",
+                                'project_id': f"{client_subdomain}-{project_slug}",
                                 'name': env_name,
                                 'database_instance': f"{project_slug}-db-{env_name}" if env_name != 'prod' else f"{project_slug}-db",
                                 'database_type': 'postgresql',  # TODO: detect from selected resources
@@ -419,7 +427,7 @@ def import_existing_project(gcp_project_id: str, client: str = None,
                             for env_name in environments:
                                 svc_suffix = f"-{env_name}" if env_name != 'prod' else ""
                                 svc_data.append({
-                                    'project_id': f"{client_slug}-{project_slug}",
+                                    'project_id': f"{client_subdomain}-{project_slug}",
                                     'name': f"{svc['name']}{svc_suffix}",
                                     'type': svc['type'],
                                     'environment': env_name,
@@ -431,11 +439,11 @@ def import_existing_project(gcp_project_id: str, client: str = None,
 
                         # Register project
                         registry.register_project({
-                            'id': f"{client_slug}-{project_slug}",
+                            'id': f"{client_subdomain}-{project_slug}",
                             'client_id': client_slug,
                             'name': project,
                             'subdomain': project_slug,
-                            'full_domain': f"{project_slug}.{client_slug}.solvigo.ai",
+                            'full_domain': f"{project_slug}.{client_subdomain}.solvigo.ai",
                             'gcp_project_id': gcp_project_id,
                             'gcp_folder_id': client_folder_id,  # Track folder location
                             'github_repo': github_repo_url,

@@ -42,6 +42,7 @@ class ProjectBase(BaseModel):
     terraform_state_bucket: Optional[str] = None
     terraform_state_prefix: Optional[str] = None
     project_type: Optional[str] = None
+    client_subdomain: Optional[str] = None  # Client subdomain from clients table
 
 
 class ProjectCreate(ProjectBase):

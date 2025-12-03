@@ -909,15 +909,14 @@ def generate_service_accounts_tf(
     deployer_sa_email = "google_service_account.deployer.email"
 
     # Build locals for service account emails (determinable at plan time)
-    # Use .iam format (without .gserviceaccount.com) for Cloud SQL compatibility
     sa_email_locals = []
     if cloud_run_services:
         for service in cloud_run_services:
             service_type = service.get('type', 'backend')
             sa_name = f"{sa_prefix}-{service_type}-app"
             resource_name = sa_name.replace('-', '_')
-            # Use .iam format (max 63 chars for Cloud SQL)
-            sa_email_locals.append(f'  {resource_name}_email = "{sa_name}@${{var.project_id}}.iam"')
+            # Full service account email format
+            sa_email_locals.append(f'  {resource_name}_email = "{sa_name}@${{var.project_id}}.iam.gserviceaccount.com"')
 
     sa_emails_block = "\n".join(sa_email_locals)
 
