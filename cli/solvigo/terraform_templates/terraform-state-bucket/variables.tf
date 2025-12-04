@@ -4,12 +4,12 @@ variable "project_id" {
 }
 
 variable "bucket_name" {
-  description = "Bucket name (should be {client}-terraform-state)"
+  description = "Bucket name in format {clientsubdomain}-{projectsubdomain}-tfstate"
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+terraform-state$", var.bucket_name))
-    error_message = "Bucket name should end with -terraform-state"
+    condition     = can(regex("^[a-z0-9]+-[a-z0-9-]+-tfstate$", var.bucket_name))
+    error_message = "Bucket name must be in format {clientsubdomain}-{projectsubdomain}-tfstate (e.g., acme-portal-tfstate)"
   }
 }
 

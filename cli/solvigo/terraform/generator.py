@@ -105,6 +105,45 @@ def sanitize_label_value(value: str) -> str:
     return value
 
 
+def calculate_sa_prefix(
+    client: str,
+    project: str,
+    client_subdomain: str = None,
+    project_subdomain: str = None
+) -> str:
+    """
+    Calculate service account prefix consistently across all Terraform generators.
+
+    This ensures service account names are consistent between:
+    - Local value declarations in service-accounts.tf
+    - Local value references in cloud-run.tf, database-sql.tf, migration-job.tf
+
+    Args:
+        client: Client name
+        project: Project name
+        client_subdomain: Client subdomain from database (e.g., "galleriet")
+        project_subdomain: Project subdomain from database (e.g., "seo")
+
+    Returns:
+        SA prefix string (e.g., "galleriet-seo" or "seo" as fallback)
+
+    Examples:
+        With subdomains: "galleriet", "seo" -> "galleriet-seo"
+        Without subdomains: None, None -> "project-slug" (sanitized project name)
+    """
+    import re
+
+    if client_subdomain and project_subdomain:
+        # Use subdomains for cleaner, shorter names
+        return f"{client_subdomain}-{project_subdomain}"
+    else:
+        # Fallback: sanitize project name to valid identifier
+        project_slug = project.lower().replace(' ', '-').replace('_', '-')
+        project_slug = re.sub(r'[^a-z0-9-]', '', project_slug)
+        project_slug = re.sub(r'-+', '-', project_slug).strip('-')
+        return project_slug
+
+
 def append_to_tf_file(file_path: Path, content: str, resource_id: str) -> bool:
     """
     Append content to Terraform file if resource doesn't already exist.
@@ -198,7 +237,7 @@ def generate_terraform_config(
 
     try:
         # Generate backend.tf
-        generate_backend_tf(client, project, output_dir)
+        generate_backend_tf(client, project, output_dir, client_subdomain, project_subdomain)
         console.print("  ✓ Created backend.tf")
 
         # Generate variables.tf
@@ -238,18 +277,28 @@ def generate_terraform_config(
         if cloud_run_services:
             generate_cloud_run_tf(
                 client, project, cloud_run_services, output_dir,
-                has_database=has_database
+                has_database=has_database,
+                client_subdomain=client_subdomain,
+                project_subdomain=project_subdomain
             )
             console.print("  ✓ Created cloud-run.tf")
 
         # Generate database resources
         if selected_resources.get('cloud_sql'):
-            generate_cloud_sql_tf(client, project, selected_resources['cloud_sql'], output_dir)
+            generate_cloud_sql_tf(
+                client, project, selected_resources['cloud_sql'], output_dir,
+                client_subdomain=client_subdomain,
+                project_subdomain=project_subdomain
+            )
             console.print("  ✓ Created database-sql.tf")
 
             # NEW: Generate migration job if database exists
             db_instance_name = selected_resources['cloud_sql'][0]['name']
-            generate_migration_job_tf(client, project, db_instance_name, output_dir)
+            generate_migration_job_tf(
+                client, project, db_instance_name, output_dir,
+                client_subdomain=client_subdomain,
+                project_subdomain=project_subdomain
+            )
             console.print("  ✓ Created migration-job.tf")
 
         if selected_resources.get('firestore'):
@@ -289,16 +338,20 @@ def generate_terraform_config(
         return False
 
 
-def generate_backend_tf(client: str, project: str, output_dir: Path):
+def generate_backend_tf(client: str, project: str, output_dir: Path,
+                       client_subdomain: str = None, project_subdomain: str = None):
     """Generate backend.tf for remote state"""
-    # Normalize to lowercase for GCS bucket name (required)
-    client_slug = client.lower().replace(' ', '-')
-    project_slug = project.lower().replace(' ', '-')
+    # Use subdomains if available, otherwise fall back to slugs
+    if client_subdomain and project_subdomain:
+        bucket_name = f"{client_subdomain}-{project_subdomain}-tfstate"
+    else:
+        client_slug = client.lower().replace(' ', '-')
+        project_slug = project.lower().replace(' ', '-')
+        bucket_name = f"{client_slug}-{project_slug}-tfstate"
 
     template = Template("""terraform {
   backend "gcs" {
-    bucket = "{{ client_slug }}-terraform-state"
-    prefix = "{{ project_slug }}/prod"
+    bucket = "{{ bucket_name }}"
   }
 
   required_version = ">= 1.5.0"
@@ -312,7 +365,7 @@ def generate_backend_tf(client: str, project: str, output_dir: Path):
 }
 """)
 
-    content = template.render(client_slug=client_slug, project_slug=project_slug)
+    content = template.render(bucket_name=bucket_name)
     (output_dir / 'backend.tf').write_text(content)
 
 
@@ -501,20 +554,18 @@ resource "google_project_service" "required_apis" {
     (output_dir / 'apis.tf').write_text(content)
 
 
-def generate_cloud_run_tf(client: str, project: str, services: List[Dict], output_dir: Path, append: bool = False, has_database: bool = False):
+def generate_cloud_run_tf(client: str, project: str, services: List[Dict], output_dir: Path, append: bool = False, has_database: bool = False, client_subdomain: str = None, project_subdomain: str = None):
     """
     Generate Cloud Run service configurations.
 
     Args:
         append: If True, append to existing file instead of overwriting
         has_database: Whether project has a database (enables VPC connector)
+        client_subdomain: Client subdomain from database (for SA naming)
+        project_subdomain: Project subdomain from database (for SA naming)
     """
-    import re
-
-    # Sanitize project name for resource naming
-    project_slug = project.lower().replace(' ', '-').replace('_', '-')
-    project_slug = re.sub(r'[^a-z0-9-]', '', project_slug)
-    project_slug = re.sub(r'-+', '-', project_slug).strip('-')
+    # Calculate SA prefix using helper function for consistency with service-accounts.tf
+    sa_prefix = calculate_sa_prefix(client, project, client_subdomain, project_subdomain)
 
     file_path = output_dir / 'cloud-run.tf'
 
@@ -533,9 +584,9 @@ def generate_cloud_run_tf(client: str, project: str, services: List[Dict], outpu
 
             # Generate and append
             if service.get('_create'):
-                module_code = generate_cloud_run_module(client, project, service, project_slug, has_database)
+                module_code = generate_cloud_run_module(client, project, service, sa_prefix, has_database)
             else:
-                module_code = generate_cloud_run_import_module(client, project, service, project_slug, has_database)
+                module_code = generate_cloud_run_import_module(client, project, service, sa_prefix, has_database)
 
             with open(file_path, 'a') as f:
                 f.write("\n\n")
@@ -547,22 +598,22 @@ def generate_cloud_run_tf(client: str, project: str, services: List[Dict], outpu
         for service in services:
             if service.get('_create'):
                 # New service - use module
-                lines.append(generate_cloud_run_module(client, project, service, project_slug, has_database))
+                lines.append(generate_cloud_run_module(client, project, service, sa_prefix, has_database))
             else:
                 # Existing service - use module with import
-                lines.append(generate_cloud_run_import_module(client, project, service, project_slug, has_database))
+                lines.append(generate_cloud_run_import_module(client, project, service, sa_prefix, has_database))
 
         file_path.write_text('\n'.join(lines))
 
 
-def generate_cloud_run_module(client: str, project: str, service: Dict, project_slug: str, has_database: bool = False) -> str:
+def generate_cloud_run_module(client: str, project: str, service: Dict, sa_prefix: str, has_database: bool = False) -> str:
     """Generate module configuration for Cloud Run service"""
     service_name = service['name']
     service_type = service.get('type', 'backend')
     region = service.get('region', 'europe-north2')
 
     # Construct service account resource name
-    sa_name = f"{project_slug}-{service_type}-app"
+    sa_name = f"{sa_prefix}-{service_type}-app"
     sa_resource_name = sa_name.replace('-', '_')
 
     # VPC connector config
@@ -611,39 +662,37 @@ module "{{ module_name }}" {
     )
 
 
-def generate_cloud_run_import_module(client: str, project: str, service: Dict, project_slug: str, has_database: bool = False) -> str:
+def generate_cloud_run_import_module(client: str, project: str, service: Dict, sa_prefix: str, has_database: bool = False) -> str:
     """Generate module configuration for existing Cloud Run service with import"""
     # For now, same as new service
     # Import block will be in imports.tf
-    return generate_cloud_run_module(client, project, service, project_slug, has_database)
+    return generate_cloud_run_module(client, project, service, sa_prefix, has_database)
 
 
-def generate_cloud_sql_tf(client: str, project: str, instances: List[Dict], output_dir: Path, append: bool = False):
+def generate_cloud_sql_tf(client: str, project: str, instances: List[Dict], output_dir: Path, append: bool = False, client_subdomain: str = None, project_subdomain: str = None):
     """Generate Cloud SQL configurations"""
+    # Calculate SA prefix using helper function for consistency with service-accounts.tf
+    sa_prefix = calculate_sa_prefix(client, project, client_subdomain, project_subdomain)
+
     lines = ["# Cloud SQL Databases\n"]
 
     for db in instances:
         if db.get('_create'):
-            lines.append(generate_cloud_sql_module(client, project, db))
+            lines.append(generate_cloud_sql_module(client, project, db, sa_prefix))
         else:
-            lines.append(generate_cloud_sql_import_module(client, project, db))
+            lines.append(generate_cloud_sql_import_module(client, project, db, sa_prefix))
 
     (output_dir / 'database-sql.tf').write_text('\n'.join(lines))
 
 
-def generate_cloud_sql_module(client: str, project: str, db: Dict) -> str:
+def generate_cloud_sql_module(client: str, project: str, db: Dict, sa_prefix: str) -> str:
     """Generate module configuration for Cloud SQL"""
-    import re
-
     db_name = db['name']
     db_version = db.get('database_version', 'POSTGRES_15')
     tier = db.get('tier', 'db-g1-small')
 
     # Construct backend service account resource name
-    project_slug = project.lower().replace(' ', '-').replace('_', '-')
-    project_slug = re.sub(r'[^a-z0-9-]', '', project_slug)
-    project_slug = re.sub(r'-+', '-', project_slug).strip('-')
-    backend_sa_name = f"{project_slug}-backend-app"
+    backend_sa_name = f"{sa_prefix}-backend-app"
     backend_sa_resource = backend_sa_name.replace('-', '_')
 
     template = Template("""
@@ -688,24 +737,24 @@ module "{{ module_name }}" {
     )
 
 
-def generate_cloud_sql_import_module(client: str, project: str, db: Dict) -> str:
+def generate_cloud_sql_import_module(client: str, project: str, db: Dict, sa_prefix: str) -> str:
     """Generate module for existing Cloud SQL with import"""
-    return generate_cloud_sql_module(client, project, db)
+    return generate_cloud_sql_module(client, project, db, sa_prefix)
 
 
 def generate_migration_job_tf(
     client: str,
     project: str,
     database_instance_name: str,
-    output_dir: Path
+    output_dir: Path,
+    client_subdomain: str = None,
+    project_subdomain: str = None
 ):
     """Generate Cloud Run migration job configuration"""
-    import re
+    # Calculate SA prefix using helper function for consistency with service-accounts.tf
+    sa_prefix = calculate_sa_prefix(client, project, client_subdomain, project_subdomain)
 
-    project_slug = project.lower().replace(' ', '-').replace('_', '-')
-    project_slug = re.sub(r'[^a-z0-9-]', '', project_slug)
-
-    job_name = f"{project_slug}-db-migrations"
+    job_name = f"{sa_prefix}-db-migrations"
 
     template = Template("""# Database Migration Job
 
@@ -735,7 +784,7 @@ module "db_migrations" {
 """)
 
     # Construct backend SA resource name
-    backend_sa_name = f"{project_slug}-backend-app"
+    backend_sa_name = f"{sa_prefix}-backend-app"
     backend_sa_resource = backend_sa_name.replace('-', '_')
 
     # Database module name
@@ -888,22 +937,8 @@ def generate_service_accounts_tf(
 
     lines = ["# Service Accounts\n"]
 
-    # Use subdomains for SA naming (shorter, cleaner names)
-    # Fallback to slugified names if subdomains not provided (backward compatibility)
-    if client_subdomain and project_subdomain:
-        # Use subdomains directly from database
-        sa_prefix = f"{client_subdomain}-{project_subdomain}"
-    else:
-        # Fallback: derive from client/project names
-        client_slug = client.lower().replace(' ', '-').replace('_', '-')
-        client_slug = re.sub(r'[^a-z0-9-]', '', client_slug)
-        client_slug = re.sub(r'-+', '-', client_slug).strip('-')
-
-        project_slug = project.lower().replace(' ', '-').replace('_', '-')
-        project_slug = re.sub(r'[^a-z0-9-]', '', project_slug)
-        project_slug = re.sub(r'-+', '-', project_slug).strip('-')
-
-        sa_prefix = f"{project_slug}"
+    # Calculate SA prefix consistently using helper function
+    sa_prefix = calculate_sa_prefix(client, project, client_subdomain, project_subdomain)
 
     # Deployer SA is in the client's project, not in solvigo-platform-prod
     deployer_sa_email = "google_service_account.deployer.email"

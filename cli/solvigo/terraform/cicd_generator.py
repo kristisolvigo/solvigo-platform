@@ -17,7 +17,7 @@ def generate_migration_step(service_type: str, project_slug: str) -> str:
     job_name = f"{project_slug}-db-migrations"
 
     return f"""
-  # Step 4: Run database migrations
+  # Step 3: Run database migrations (before deploying backend)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'run-migrations'
     entrypoint: gcloud
@@ -29,7 +29,7 @@ def generate_migration_step(service_type: str, project_slug: str) -> str:
       - '--region=$_REGION'
       - '--project=$_GCP_PROJECT'
       - '--wait'
-    waitFor: ['deploy-cloudrun']
+    waitFor: ['push-image']
     timeout: '600s'
 """
 
@@ -230,8 +230,8 @@ steps:
       - '$_ARTIFACT_REPO/$_SERVICE_NAME'
     waitFor: ['build-image']
     timeout: '300s'
-
-  # Step 3: Deploy to Cloud Run
+{{ migration_step }}
+  # Step {% if has_database and service_type == 'backend' %}4{% else %}3{% endif %}: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-cloudrun'
     entrypoint: gcloud
@@ -261,9 +261,8 @@ steps:
       # - '--min-instances=0'
       # - '--cpu=1'
       # - '--memory=256Mi'{% endif %}
-    waitFor: ['push-image']
+    waitFor: [{% if has_database and service_type == 'backend' %}'run-migrations'{% else %}'push-image'{% endif %}]
     timeout: '900s'
-{{ migration_step }}
   # Step 5 (Optional): Run smoke tests
   # Uncomment to enable:
   # - name: 'gcr.io/cloud-builders/curl'
@@ -302,7 +301,8 @@ images:
             client=client,
             project=project,
             domain=domain,
-            migration_step=migration_step
+            migration_step=migration_step,
+            has_database=has_database
         )
 
         # Determine output filename
@@ -319,6 +319,96 @@ images:
 
     except Exception as e:
         console.print(f"[red]✗ Error generating cloudbuild.yaml: {e}[/red]")
+        return False
+
+
+def generate_orchestrator_cloudbuild(
+    client: str,
+    project: str,
+    services: List[Dict],
+    output_dir: Path,
+    has_database: bool = False
+) -> bool:
+    """
+    Generate orchestrator cloudbuild.yaml that coordinates multiple services.
+
+    Args:
+        client: Client name
+        project: Project name
+        services: List of service configs with 'name', 'type', 'dockerfile' keys
+        output_dir: Output directory (cicd/)
+        has_database: Whether backend has database requiring migrations
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Load orchestrator template
+        template_path = Path(__file__).parent.parent / 'terraform_templates' / \
+                       'platform' / 'cloud-build-pipeline' / 'templates' / \
+                       'cloudbuild-orchestrator.yaml'
+
+        with open(template_path, 'r') as f:
+            template_content = f.read()
+
+        template = Template(template_content)
+
+        # Organize services by type
+        backend_service = next((s for s in services if s['type'] == 'backend'), None)
+        frontend_service = next((s for s in services if s['type'] == 'frontend'), None)
+
+        # Extract build context from dockerfile path
+        def get_build_context(dockerfile_path: str) -> str:
+            dockerfile_dir = str(Path(dockerfile_path).parent)
+            return dockerfile_dir if dockerfile_dir != '.' else '.'
+
+        # Prepare template variables
+        template_vars = {
+            'client': client,
+            'project': project,
+            'service_types': [s['type'] for s in services],
+            'has_backend': backend_service is not None,
+            'has_frontend': frontend_service is not None,
+            'has_database': has_database,
+        }
+
+        if backend_service:
+            template_vars.update({
+                'backend_service_name': backend_service['name'],
+                'backend_dockerfile': backend_service['dockerfile'],
+                'backend_build_context': get_build_context(backend_service['dockerfile']),
+            })
+
+            if has_database:
+                # Generate migration job name
+                import re
+                project_slug = project.lower().replace(' ', '-').replace('_', '-')
+                project_slug = re.sub(r'[^a-z0-9-]', '', project_slug)
+                template_vars['migration_job_name'] = f"{project_slug}-db-migrations"
+
+        if frontend_service:
+            template_vars.update({
+                'frontend_service_name': frontend_service['name'],
+                'frontend_dockerfile': frontend_service['dockerfile'],
+                'frontend_build_context': get_build_context(frontend_service['dockerfile']),
+            })
+
+        # Generate domain for smoke tests
+        client_slug = client.lower().replace(' ', '-')
+        template_vars['domain'] = f"{client_slug}.solvigo.ai"
+
+        # Render template
+        content = template.render(**template_vars)
+
+        # Write to single orchestrator file
+        build_file = output_dir / 'cloudbuild.yaml'
+        build_file.write_text(content)
+
+        console.print(f"  ✓ Created cloudbuild.yaml (orchestrator)")
+        return True
+
+    except Exception as e:
+        console.print(f"[red]✗ Error generating orchestrator cloudbuild.yaml: {e}[/red]")
         return False
 
 
@@ -360,26 +450,25 @@ def generate_all_cicd_files(
     # REMOVED: generate_cicd_tf() call
     # Triggers are now created via Admin API, not Terraform
 
-    # Generate cloudbuild.yaml files in cicd/ directory
+    # Create cicd directory
     if app_dir is None:
         app_dir = terraform_dir.parent / 'cicd'
         app_dir.mkdir(parents=True, exist_ok=True)
 
-    for service in services:
-        success = generate_cloudbuild_yaml(
-            service_name=service['name'],
-            service_type=service['type'],
-            dockerfile_path=service['dockerfile'],
-            client=client,
-            project=project,
-            output_dir=app_dir,
-            has_database=has_database
-        )
-        if not success:
-            return False
+    # Generate single orchestrator cloudbuild.yaml
+    success = generate_orchestrator_cloudbuild(
+        client=client,
+        project=project,
+        services=services,
+        output_dir=app_dir,
+        has_database=has_database
+    )
 
-    console.print(f"\n[green]✓ CI/CD build configs generated successfully[/green]\n")
-    console.print(f"[dim]Build configs:[/dim] {app_dir}/cloudbuild*.yaml")
+    if not success:
+        return False
+
+    console.print(f"\n[green]✓ CI/CD orchestrator generated successfully[/green]\n")
+    console.print(f"[dim]Build config:[/dim] {app_dir}/cloudbuild.yaml")
     console.print(f"[dim]Note: Cloud Build triggers will be created via Admin API[/dim]\n")
 
     return True

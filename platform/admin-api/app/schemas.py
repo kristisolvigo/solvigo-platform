@@ -174,7 +174,7 @@ class EnvironmentTriggerConfig(BaseModel):
     name: str
     branch_pattern: Optional[str] = None
     tag_pattern: Optional[str] = None
-    cloudbuild_file: str
+    # cloudbuild_file removed - orchestrator always uses cicd/cloudbuild.yaml
     require_approval: bool = False
 
 

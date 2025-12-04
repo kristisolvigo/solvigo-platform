@@ -682,246 +682,241 @@ def create_build_triggers(
                 detail=f"Failed to find repository in connection: {str(e)}"
             )
 
-        # Create triggers for each service × environment
-        for service in trigger_config.services:
-            for env in trigger_config.environments:
-                trigger_name = f"{project_id}-{service.type}-{env.name}"
+        # Create one trigger per environment (orchestrator pattern)
+        for env in trigger_config.environments:
+            trigger_name = f"{project_id}-{env.name}"
 
-                logger.info(f"Creating Cloud Build trigger: {trigger_name}")
+            logger.info(f"Creating Cloud Build trigger: {trigger_name}")
 
-                # Determine trigger source (branch or tag)
-                if env.branch_pattern:
-                    # Use push event with branch filter
-                    event_config = cloudbuild_v1.RepositoryEventConfig(
-                        repository=repository_resource,
-                        push=cloudbuild_v1.PushFilter(
-                            branch=env.branch_pattern
-                        )
+            # Determine trigger source (branch or tag)
+            if env.branch_pattern:
+                # Use push event with branch filter
+                event_config = cloudbuild_v1.RepositoryEventConfig(
+                    repository=repository_resource,
+                    push=cloudbuild_v1.PushFilter(
+                        branch=env.branch_pattern
                     )
-                elif env.tag_pattern:
-                    # Use push event with tag filter
-                    event_config = cloudbuild_v1.RepositoryEventConfig(
-                        repository=repository_resource,
-                        push=cloudbuild_v1.PushFilter(
-                            tag=env.tag_pattern
-                        )
+                )
+            elif env.tag_pattern:
+                # Use push event with tag filter
+                event_config = cloudbuild_v1.RepositoryEventConfig(
+                    repository=repository_resource,
+                    push=cloudbuild_v1.PushFilter(
+                        tag=env.tag_pattern
                     )
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Environment {env.name} must specify either branch_pattern or tag_pattern"
-                    )
-
-                # Build trigger configuration using v2 API
-                trigger = cloudbuild_v1.BuildTrigger(
-                    name=trigger_name,
-                    description=f"Deploy {project.name} {service.type} to {env.name}",
-                    filename=service.cloudbuild_file,
-                    repository_event_config=event_config,
-                    substitutions={
-                        "_GCP_PROJECT": project.gcp_project_id or "",
-                        "_REGION": project.gcp_region,
-                        "_SERVICE_ACCOUNT": deployer_email,
-                        "_ENVIRONMENT": env.name,
-                        "_SERVICE_NAME": f"{project_id}-{service.type}",
-                        "_ARTIFACT_REPO": f"{SHARED_REGISTRY_LOCATION}-docker.pkg.dev/{PLATFORM_PROJECT_ID}/{SHARED_REGISTRY_REPO}"
-                    },
-                    service_account=f"projects/{project.gcp_project_id}/serviceAccounts/{deployer_email}"
-                    # No approval_config - rely on GitHub branch protection instead
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Environment {env.name} must specify either branch_pattern or tag_pattern"
                 )
 
-                # ==================== DIAGNOSTIC LOGGING START ====================
-                logger.info("=== PERMISSION DIAGNOSTIC START ===")
+            # Build trigger configuration - single orchestrator file for all services
+            trigger = cloudbuild_v1.BuildTrigger(
+                name=trigger_name,
+                description=f"Deploy {project.name} (all services) to {env.name}",
+                filename="cicd/cloudbuild.yaml",  # Orchestrator file
+                repository_event_config=event_config,
+                substitutions={
+                    "_GCP_PROJECT": project.gcp_project_id or "",
+                    "_REGION": project.gcp_region,
+                    "_SERVICE_ACCOUNT": deployer_email,
+                    "_ENVIRONMENT": env.name,
+                    "_ARTIFACT_REPO": f"{SHARED_REGISTRY_LOCATION}-docker.pkg.dev/{PLATFORM_PROJECT_ID}/{SHARED_REGISTRY_REPO}"
+                },
+                service_account=f"projects/{project.gcp_project_id}/serviceAccounts/{deployer_email}"
+                # No approval_config - rely on GitHub branch protection instead
+            )
 
-                # Phase 1: Log the authenticated identity being used
-                logger.info(f"Authenticated as: {credentials.service_account_email if hasattr(credentials, 'service_account_email') else 'unknown'}")
-                logger.info(f"Credential type: {type(credentials).__name__}")
+            # ==================== DIAGNOSTIC LOGGING START ====================
+            logger.info("=== PERMISSION DIAGNOSTIC START ===")
 
-                # Log what we're trying to do
-                logger.info(f"Creating trigger in project: {PLATFORM_PROJECT_ID}")
-                service_account_path = f"projects/{project.gcp_project_id}/serviceAccounts/{deployer_email}"
-                logger.info(f"Trigger will use service account: {service_account_path}")
-                logger.info(f"Client project: {project.gcp_project_id}")
+            # Phase 1: Log the authenticated identity being used
+            logger.info(f"Authenticated as: {credentials.service_account_email if hasattr(credentials, 'service_account_email') else 'unknown'}")
+            logger.info(f"Credential type: {type(credentials).__name__}")
 
-                # Phase 2: Test direct impersonation of the deployer SA
+            # Log what we're trying to do
+            logger.info(f"Creating trigger in project: {PLATFORM_PROJECT_ID}")
+            service_account_path = f"projects/{project.gcp_project_id}/serviceAccounts/{deployer_email}"
+            logger.info(f"Trigger will use service account: {service_account_path}")
+            logger.info(f"Client project: {project.gcp_project_id}")
+
+            # Phase 2: Test direct impersonation of the deployer SA
+            try:
+                from google.cloud.iam_credentials_v1 import IAMCredentialsClient
+                from google.cloud.iam_credentials_v1.types import GenerateAccessTokenRequest
+
+                iam_creds_client = IAMCredentialsClient(credentials=credentials)
+
+                # Try to generate access token for the deployer SA (tests actAs permission)
+                service_account_name = f"projects/-/serviceAccounts/{deployer_email}"
+
+                logger.info(f"Testing impersonation of: {service_account_name}")
+
+                # Use generateAccessToken to test if we have actAs permission
+                request_iam = GenerateAccessTokenRequest(
+                    name=service_account_name,
+                    scope=["https://www.googleapis.com/auth/cloud-platform"],
+                )
+
+                # This will fail with 403 if we don't have actAs permission
+                response_iam = iam_creds_client.generate_access_token(request=request_iam)
+                logger.info("✓ Successfully tested impersonation - actAs permission is working")
+
+            except Exception as test_error:
+                logger.error(f"✗ Failed impersonation test: {test_error}")
+                logger.error(f"This indicates the permission issue is with: {credentials.service_account_email if hasattr(credentials, 'service_account_email') else 'the authenticated identity'}")
+
+            # Phase 3: Test permissions using IAM testPermissions API
+            try:
+                from google.cloud.iam_admin_v1.types import TestIamPermissionsRequest
+
+                iam_admin_client = iam_admin_v1.IAMClient(credentials=credentials)
+
+                # Test permissions on the deployer service account
+                resource_name = f"projects/{project.gcp_project_id}/serviceAccounts/{deployer_email}"
+                request_test = TestIamPermissionsRequest(
+                    resource=resource_name,
+                    permissions=[
+                        "iam.serviceAccounts.actAs",
+                        "iam.serviceAccounts.getAccessToken",
+                        "iam.serviceAccounts.implicitDelegation",
+                    ]
+                )
+
+                response_test = iam_admin_client.test_iam_permissions(request=request_test)
+                logger.info(f"Permissions on deployer SA: {list(response_test.permissions)}")
+
+                if "iam.serviceAccounts.actAs" not in response_test.permissions:
+                    logger.error("MISSING: iam.serviceAccounts.actAs permission on deployer SA")
+                else:
+                    logger.info("✓ Has iam.serviceAccounts.actAs permission")
+
+            except Exception as perm_error:
+                logger.error(f"Failed to test permissions: {perm_error}")
+
+            # Phase 4: Check Cloud Build permissions
+            try:
+                # Check if registry-api can create triggers in platform project
+                from google.cloud import resourcemanager_v3
+
+                crm_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
+                platform_project_obj = crm_client.get_project(name=f"projects/{PLATFORM_PROJECT_ID}")
+
+                logger.info(f"Platform project state: {platform_project_obj.state.name}")
+
+                # Test if we have the cloudbuild.builds.create permission in platform project
+                logger.info("Checking Cloud Build permissions in platform project...")
+
+                # List existing triggers to test read permission
+                list_request = cloudbuild_v1.ListBuildTriggersRequest(
+                    parent=parent,
+                    project_id=PLATFORM_PROJECT_ID
+                )
+                triggers_list = build_client.list_build_triggers(request=list_request)
+                logger.info(f"✓ Can list triggers in platform project (found {len(list(triggers_list))} triggers)")
+
+            except Exception as cb_error:
+                logger.error(f"Cloud Build permission issue: {cb_error}")
+
+            # Phase 5: Check for cross-project scenario
+            if project.gcp_project_id != PLATFORM_PROJECT_ID:
+                logger.info(f"CROSS-PROJECT scenario detected:")
+                logger.info(f"  Trigger location: {PLATFORM_PROJECT_ID}")
+                logger.info(f"  Service account location: {project.gcp_project_id}")
+                logger.info("Checking for organization policies that might block cross-project SA usage...")
+                logger.info("Consider checking organization policy: constraints/iam.allowedPolicyMemberDomains")
+
+            logger.info("=== PERMISSION DIAGNOSTIC END ===")
+            # ==================== DIAGNOSTIC LOGGING END ====================
+
+            try:
+                # Log trigger configuration for debugging
+                logger.info(f"Trigger config: name={trigger_name}, service_account={service_account_path}, repo={repo_owner}/{repo_name}")
+
+                # Create trigger using request object
+                request = cloudbuild_v1.CreateBuildTriggerRequest(
+                    parent=parent,
+                    project_id=PLATFORM_PROJECT_ID,
+                    trigger=trigger
+                )
+                created_trigger = build_client.create_build_trigger(request=request)
+                logger.info(f"Created trigger: {created_trigger.name} (ID: {created_trigger.id})")
+
+                triggers_created.append({
+                    'environment': env.name,
+                    'trigger_id': created_trigger.id,
+                    'trigger_name': created_trigger.name,
+                    'branch_pattern': env.branch_pattern,
+                    'tag_pattern': env.tag_pattern,
+                    'cloudbuild_file': 'cicd/cloudbuild.yaml',
+                    'resource_name': created_trigger.resource_name
+                })
+
+            except google_exceptions.AlreadyExists:
+                logger.info(f"Trigger already exists: {trigger_name}")
+                # List existing triggers to find the matching one
                 try:
-                    from google.cloud.iam_credentials_v1 import IAMCredentialsClient
-                    from google.cloud.iam_credentials_v1.types import GenerateAccessTokenRequest
-
-                    iam_creds_client = IAMCredentialsClient(credentials=credentials)
-
-                    # Try to generate access token for the deployer SA (tests actAs permission)
-                    service_account_name = f"projects/-/serviceAccounts/{deployer_email}"
-
-                    logger.info(f"Testing impersonation of: {service_account_name}")
-
-                    # Use generateAccessToken to test if we have actAs permission
-                    request_iam = GenerateAccessTokenRequest(
-                        name=service_account_name,
-                        scope=["https://www.googleapis.com/auth/cloud-platform"],
-                    )
-
-                    # This will fail with 403 if we don't have actAs permission
-                    response_iam = iam_creds_client.generate_access_token(request=request_iam)
-                    logger.info("✓ Successfully tested impersonation - actAs permission is working")
-
-                except Exception as test_error:
-                    logger.error(f"✗ Failed impersonation test: {test_error}")
-                    logger.error(f"This indicates the permission issue is with: {credentials.service_account_email if hasattr(credentials, 'service_account_email') else 'the authenticated identity'}")
-
-                # Phase 3: Test permissions using IAM testPermissions API
-                try:
-                    from google.cloud.iam_admin_v1.types import TestIamPermissionsRequest
-
-                    iam_admin_client = iam_admin_v1.IAMClient(credentials=credentials)
-
-                    # Test permissions on the deployer service account
-                    resource_name = f"projects/{project.gcp_project_id}/serviceAccounts/{deployer_email}"
-                    request_test = TestIamPermissionsRequest(
-                        resource=resource_name,
-                        permissions=[
-                            "iam.serviceAccounts.actAs",
-                            "iam.serviceAccounts.getAccessToken",
-                            "iam.serviceAccounts.implicitDelegation",
-                        ]
-                    )
-
-                    response_test = iam_admin_client.test_iam_permissions(request=request_test)
-                    logger.info(f"Permissions on deployer SA: {list(response_test.permissions)}")
-
-                    if "iam.serviceAccounts.actAs" not in response_test.permissions:
-                        logger.error("MISSING: iam.serviceAccounts.actAs permission on deployer SA")
-                    else:
-                        logger.info("✓ Has iam.serviceAccounts.actAs permission")
-
-                except Exception as perm_error:
-                    logger.error(f"Failed to test permissions: {perm_error}")
-
-                # Phase 4: Check Cloud Build permissions
-                try:
-                    # Check if registry-api can create triggers in platform project
-                    from google.cloud import resourcemanager_v3
-
-                    crm_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
-                    platform_project_obj = crm_client.get_project(name=f"projects/{PLATFORM_PROJECT_ID}")
-
-                    logger.info(f"Platform project state: {platform_project_obj.state.name}")
-
-                    # Test if we have the cloudbuild.builds.create permission in platform project
-                    logger.info("Checking Cloud Build permissions in platform project...")
-
-                    # List existing triggers to test read permission
                     list_request = cloudbuild_v1.ListBuildTriggersRequest(
                         parent=parent,
                         project_id=PLATFORM_PROJECT_ID
                     )
-                    triggers_list = build_client.list_build_triggers(request=list_request)
-                    logger.info(f"✓ Can list triggers in platform project (found {len(list(triggers_list))} triggers)")
+                    existing_triggers = build_client.list_build_triggers(request=list_request)
 
-                except Exception as cb_error:
-                    logger.error(f"Cloud Build permission issue: {cb_error}")
-
-                # Phase 5: Check for cross-project scenario
-                if project.gcp_project_id != PLATFORM_PROJECT_ID:
-                    logger.info(f"CROSS-PROJECT scenario detected:")
-                    logger.info(f"  Trigger location: {PLATFORM_PROJECT_ID}")
-                    logger.info(f"  Service account location: {project.gcp_project_id}")
-                    logger.info("Checking for organization policies that might block cross-project SA usage...")
-                    logger.info("Consider checking organization policy: constraints/iam.allowedPolicyMemberDomains")
-
-                logger.info("=== PERMISSION DIAGNOSTIC END ===")
-                # ==================== DIAGNOSTIC LOGGING END ====================
-
-                try:
-                    # Log trigger configuration for debugging
-                    logger.info(f"Trigger config: name={trigger_name}, service_account={service_account_path}, repo={repo_owner}/{repo_name}")
-
-                    # Create trigger using request object
-                    request = cloudbuild_v1.CreateBuildTriggerRequest(
-                        parent=parent,
-                        project_id=PLATFORM_PROJECT_ID,
-                        trigger=trigger
-                    )
-                    created_trigger = build_client.create_build_trigger(request=request)
-                    logger.info(f"Created trigger: {created_trigger.name} (ID: {created_trigger.id})")
-
+                    for existing in existing_triggers:
+                        if existing.name == trigger_name:
+                            triggers_created.append({
+                                'environment': env.name,
+                                'trigger_id': existing.id,
+                                'trigger_name': existing.name,
+                                'branch_pattern': env.branch_pattern,
+                                'tag_pattern': env.tag_pattern,
+                                'cloudbuild_file': 'cicd/cloudbuild.yaml',
+                                'resource_name': existing.resource_name,
+                                'status': 'already_exists'
+                            })
+                            break
+                except Exception as e:
+                    logger.error(f"Failed to list existing triggers: {e}")
                     triggers_created.append({
-                        'service': service.type,
                         'environment': env.name,
-                        'trigger_id': created_trigger.id,
-                        'trigger_name': created_trigger.name,
-                        'branch_pattern': env.branch_pattern,
-                        'tag_pattern': env.tag_pattern,
-                        'cloudbuild_file': service.cloudbuild_file,
-                        'resource_name': created_trigger.resource_name
+                        'trigger_name': trigger_name,
+                        'status': 'already_exists_unverified'
                     })
 
-                except google_exceptions.AlreadyExists:
-                    logger.info(f"Trigger already exists: {trigger_name}")
-                    # List existing triggers to find the matching one
-                    try:
-                        list_request = cloudbuild_v1.ListBuildTriggersRequest(
-                            parent=parent,
-                            project_id=PLATFORM_PROJECT_ID
-                        )
-                        existing_triggers = build_client.list_build_triggers(request=list_request)
+            except Exception as e:
+                # Enhanced error logging for diagnostics
+                logger.error(f"Failed to create trigger for {env.name}: {e}")
+                logger.error(f"Full error: {repr(e)}")
+                logger.error(f"Error type: {type(e).__name__}")
 
-                        for existing in existing_triggers:
-                            if existing.name == trigger_name:
-                                triggers_created.append({
-                                    'service': service.type,
-                                    'environment': env.name,
-                                    'trigger_id': existing.id,
-                                    'trigger_name': existing.name,
-                                    'branch_pattern': env.branch_pattern,
-                                    'tag_pattern': env.tag_pattern,
-                                    'cloudbuild_file': service.cloudbuild_file,
-                                    'resource_name': existing.resource_name,
-                                    'status': 'already_exists'
-                                })
-                                break
-                    except Exception as e:
-                        logger.error(f"Failed to list existing triggers: {e}")
-                        triggers_created.append({
-                            'service': service.type,
-                            'environment': env.name,
-                            'trigger_name': trigger_name,
-                            'status': 'already_exists_unverified'
-                        })
+                if hasattr(e, 'details'):
+                    logger.error(f"Error details: {e.details}")
 
-                except Exception as e:
-                    # Enhanced error logging for diagnostics
-                    logger.error(f"Failed to create trigger for {service.type}-{env.name}: {e}")
-                    logger.error(f"Full error: {repr(e)}")
-                    logger.error(f"Error type: {type(e).__name__}")
+                if hasattr(e, 'errors'):
+                    logger.error(f"Error list: {e.errors}")
 
-                    if hasattr(e, 'details'):
-                        logger.error(f"Error details: {e.details}")
+                # Try to extract more details from the exception
+                if hasattr(e, 'message'):
+                    logger.error(f"Error message: {e.message}")
 
-                    if hasattr(e, 'errors'):
-                        logger.error(f"Error list: {e.errors}")
+                if hasattr(e, 'metadata'):
+                    logger.error(f"Error metadata: {e.metadata}")
 
-                    # Try to extract more details from the exception
-                    if hasattr(e, 'message'):
-                        logger.error(f"Error message: {e.message}")
+                # Log the full exception chain
+                import traceback
+                logger.error(f"Full traceback:\n{traceback.format_exc()}")
 
-                    if hasattr(e, 'metadata'):
-                        logger.error(f"Error metadata: {e.metadata}")
+                # Check if it's a permission error and log remediation steps
+                if "permission" in str(e).lower():
+                    logger.error("PERMISSION ERROR DETECTED")
+                    logger.error("Check:")
+                    auth_identity = credentials.service_account_email if hasattr(credentials, 'service_account_email') else 'authenticated identity'
+                    logger.error(f"  1. Does {auth_identity} have iam.serviceAccounts.actAs on {deployer_email}?")
+                    logger.error(f"  2. Does {auth_identity} have cloudbuild.builds.create in {PLATFORM_PROJECT_ID}?")
+                    logger.error(f"  3. Are there organization policies blocking cross-project service account usage?")
 
-                    # Log the full exception chain
-                    import traceback
-                    logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
-                    # Check if it's a permission error and log remediation steps
-                    if "permission" in str(e).lower():
-                        logger.error("PERMISSION ERROR DETECTED")
-                        logger.error("Check:")
-                        auth_identity = credentials.service_account_email if hasattr(credentials, 'service_account_email') else 'authenticated identity'
-                        logger.error(f"  1. Does {auth_identity} have iam.serviceAccounts.actAs on {deployer_email}?")
-                        logger.error(f"  2. Does {auth_identity} have cloudbuild.builds.create in {PLATFORM_PROJECT_ID}?")
-                        logger.error(f"  3. Are there organization policies blocking cross-project service account usage?")
-
-                    raise handle_gcp_error(e, f"Create trigger for {service.type}-{env.name}", trigger_name)
+                raise handle_gcp_error(e, f"Create trigger for {env.name}", trigger_name)
 
         # Log in audit trail
         db.add(models.AuditLog(

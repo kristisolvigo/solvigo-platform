@@ -23,6 +23,23 @@ def add_services_to_existing_project(context: dict):
     client = context.get('client')
     project = context.get('project')
     gcp_project_id = context.get('gcp_project_id')
+    client_subdomain = context.get('client_subdomain')
+    project_subdomain = context.get('project_subdomain')
+
+    # If subdomains not in context, fetch from database for consistent SA naming
+    if (not client_subdomain or not project_subdomain) and project:
+        try:
+            from solvigo.admin.client import AdminClient
+            registry = AdminClient()
+            project_info = registry.get_project(project)
+
+            if not client_subdomain:
+                client_subdomain = project_info.get('client_subdomain')
+            if not project_subdomain:
+                project_subdomain = project_info.get('subdomain')
+        except Exception as e:
+            # Will fall back to slug-based naming in generator
+            pass
 
     if not gcp_project_id:
         console.print("[red]✗ No GCP project ID found. Run 'solvigo status' to verify context.[/red]")
@@ -126,7 +143,11 @@ def add_services_to_existing_project(context: dict):
             # Generate complete configuration (like import)
             from solvigo.terraform.generator import generate_terraform_config
 
-            if not generate_terraform_config(client, project, selected, terraform_dir, gcp_project_id):
+            if not generate_terraform_config(
+                client, project, selected, terraform_dir, gcp_project_id,
+                client_subdomain=client_subdomain,
+                project_subdomain=project_subdomain
+            ):
                 console.print("[red]✗ Failed to generate Terraform configuration[/red]\n")
                 return
         else:
@@ -149,11 +170,22 @@ def add_services_to_existing_project(context: dict):
         # Append to existing files
         try:
             if selected.get('cloud_run'):
-                generate_cloud_run_tf(client, project, selected['cloud_run'], terraform_dir, append=True)
+                generate_cloud_run_tf(
+                    client, project, selected['cloud_run'], terraform_dir,
+                    append=True,
+                    has_database=bool(selected.get('cloud_sql') or selected.get('firestore')),
+                    client_subdomain=client_subdomain,
+                    project_subdomain=project_subdomain
+                )
                 console.print("  ✓ Updated cloud-run.tf")
 
             if selected.get('cloud_sql'):
-                generate_cloud_sql_tf(client, project, selected['cloud_sql'], terraform_dir, append=True)
+                generate_cloud_sql_tf(
+                    client, project, selected['cloud_sql'], terraform_dir,
+                    append=True,
+                    client_subdomain=client_subdomain,
+                    project_subdomain=project_subdomain
+                )
                 console.print("  ✓ Updated database-sql.tf")
 
             if selected.get('storage'):

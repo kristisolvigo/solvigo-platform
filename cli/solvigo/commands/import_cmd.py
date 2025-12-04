@@ -409,13 +409,16 @@ def import_existing_project(gcp_project_id: str, client: str = None,
                             # If fetch fails, fall back to client_slug
                             client_subdomain = client_slug
 
+                        # For imported projects, use slug as subdomain
+                        project_subdomain = project_slug
+
                         # Prepare environment data
                         env_data = []
                         for env_name in environments:
                             env_data.append({
                                 'project_id': f"{client_subdomain}-{project_slug}",
                                 'name': env_name,
-                                'database_instance': f"{project_slug}-db-{env_name}" if env_name != 'prod' else f"{project_slug}-db",
+                                'database_instance': f"{project_subdomain}-db-{env_name}" if env_name != 'prod' else f"{project_subdomain}-db",
                                 'database_type': 'postgresql',  # TODO: detect from selected resources
                                 'auto_deploy': (env_name == 'staging'),
                                 'requires_approval': (env_name == 'prod')
@@ -447,8 +450,7 @@ def import_existing_project(gcp_project_id: str, client: str = None,
                             'gcp_project_id': gcp_project_id,
                             'gcp_folder_id': client_folder_id,  # Track folder location
                             'github_repo': github_repo_url,
-                            'terraform_state_bucket': f"{client_slug}-terraform-state",
-                            'terraform_state_prefix': f"{project_slug}/prod",
+                            'terraform_state_bucket': f"{client_subdomain}-{project_subdomain}-tfstate",
                             'project_type': app_type,
                             'environments': env_data,
                             'services': svc_data

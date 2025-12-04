@@ -75,6 +75,21 @@ def generate_infrastructure_interactive(context: dict) -> bool:
     client_subdomain = context.get('client_subdomain')
     project_subdomain = context.get('project_subdomain')
 
+    # If subdomains not in context, fetch from database
+    if (not client_subdomain or not project_subdomain) and project_id:
+        try:
+            from solvigo.admin.client import AdminClient
+            registry = AdminClient()
+            project_info = registry.get_project(project_id)
+
+            if not client_subdomain:
+                client_subdomain = project_info.get('client_subdomain')
+            if not project_subdomain:
+                project_subdomain = project_info.get('subdomain')
+        except Exception as e:
+            console.print(f"[yellow]⚠ Could not fetch project details from database: {e}[/yellow]")
+            # Will fall back to slug-based naming
+
     # Derive slugs from project_id if available
     if '-' in project_id:
         parts = project_id.split('-')
@@ -148,7 +163,7 @@ def generate_infrastructure_interactive(context: dict) -> bool:
 
     if "PostgreSQL" in database_choice or "Both" in database_choice:
         selected_resources['cloud_sql'].append({
-            'name': f"{project_slug}-db",
+            'name': f"{project_subdomain}-db" if project_subdomain else f"{project_slug}-db",
             'database_version': 'POSTGRES_15',
             'tier': 'db-f1-micro',
             'backups': True,
@@ -157,7 +172,7 @@ def generate_infrastructure_interactive(context: dict) -> bool:
 
     if "MySQL" in database_choice:
         selected_resources['cloud_sql'].append({
-            'name': f"{project_slug}-db",
+            'name': f"{project_subdomain}-db" if project_subdomain else f"{project_slug}-db",
             'database_version': 'MYSQL_8_0',
             'tier': 'db-f1-micro',
             'backups': True,
@@ -226,22 +241,37 @@ def generate_infrastructure_interactive(context: dict) -> bool:
     console.print("\n[cyan]🚀 Generating infrastructure...[/cyan]\n")
 
     # 7.1 Setup GCS State Bucket
-    bucket_name = f"{client_slug}-terraform-state"
+    # Use subdomains if available, otherwise fall back to slugs
+    if client_subdomain and project_subdomain:
+        bucket_name = f"{client_subdomain}-{project_subdomain}-tfstate"
+    else:
+        # Fallback for backward compatibility
+        bucket_name = f"{client_slug}-{project_slug}-tfstate"
     console.print(f"[dim]Ensuring Terraform state bucket exists: {bucket_name}[/dim]")
     try:
         # Check if exists
         check = subprocess.run(
             ['gcloud', 'storage', 'buckets', 'describe', f'gs://{bucket_name}'],
-            capture_output=True
+            capture_output=True, text=True
         )
         if check.returncode != 0:
             # Create
-            subprocess.run(
+            result = subprocess.run(
                 ['gcloud', 'storage', 'buckets', 'create', f'gs://{bucket_name}',
                  '--project', gcp_project_id, '--location', 'europe-north1'],
-                check=True, capture_output=True
+                capture_output=True, text=True
             )
-            console.print(f"[green]✓ Created state bucket: {bucket_name}[/green]")
+            if result.returncode != 0:
+                console.print(f"[red]✗ Failed to create state bucket[/red]")
+                console.print(f"[yellow]Error: {result.stderr.strip()}[/yellow]")
+                console.print("[dim]Common issues:[/dim]")
+                console.print("[dim]  • Billing not enabled on the project[/dim]")
+                console.print("[dim]  • Cloud Storage API not enabled[/dim]")
+                console.print("[dim]  • Bucket name already exists globally[/dim]")
+                console.print("[dim]  • Insufficient permissions[/dim]")
+                console.print(f"[yellow]You may need to create it manually with: gcloud storage buckets create gs://{bucket_name} --project {gcp_project_id} --location europe-north1[/yellow]")
+            else:
+                console.print(f"[green]✓ Created state bucket: {bucket_name}[/green]")
         else:
             console.print(f"[green]✓ State bucket exists[/green]")
     except Exception as e:
@@ -344,29 +374,14 @@ def generate_infrastructure_interactive(context: dict) -> bool:
                 # Build environment configurations
                 env_configs = []
                 for env_name in environments:
-                    # Determine trigger patterns based on environment
-                    if env_name in ['dev', 'staging']:
-                        env_config = {
-                            'name': env_name,
-                            'branch_pattern': '^main$',
-                            'tag_pattern': None
-                        }
-                    elif env_name == 'prod':
-                        env_config = {
-                            'name': env_name,
-                            'branch_pattern': None,
-                            'tag_pattern': '^v.*'
-                        }
-                    else:
-                        # Custom environment - default to branch-based
-                        env_config = {
-                            'name': env_name,
-                            'branch_pattern': f'^{env_name}$',
-                            'tag_pattern': None
-                        }
+                    # All environments trigger on push to main branch
+                    env_config = {
+                        'name': env_name,
+                        'branch_pattern': '^main$',
+                        'tag_pattern': None
+                    }
 
-                    # Add cloudbuild_file (not used by new API but kept for compatibility)
-                    env_config['cloudbuild_file'] = f"cicd/cloudbuild-backend.yaml"
+                    # No cloudbuild_file - orchestrator always uses cicd/cloudbuild.yaml
                     env_configs.append(env_config)
 
                 # Build service configurations
@@ -394,7 +409,7 @@ def generate_infrastructure_interactive(context: dict) -> bool:
 
                 # Show created triggers
                 for trigger in trigger_response['triggers']:
-                    console.print(f"  • {trigger['service']}-{trigger['environment']}")
+                    console.print(f"  • {trigger['environment']} ({trigger.get('trigger_name', 'N/A')})")
 
             except Exception as e:
                 console.print(f"[yellow]⚠ Failed to create Cloud Build triggers: {e}[/yellow]")
@@ -494,7 +509,9 @@ def interactive_create_project():
         'project': f"{client_subdomain}-{project_slug}",
         'gcp_project_id': gcp_project_id,
         'github_url': '',  # Will be prompted in shared function
-        'path': str(prompt_repository_location(client_name, project_name))
+        'path': str(prompt_repository_location(client_name, project_name)),
+        'client_subdomain': client_subdomain,
+        'project_subdomain': subdomain
     }
 
     # Call shared infrastructure generation function
@@ -521,7 +538,7 @@ def interactive_create_project():
             env_data.append({
                 'project_id': f"{client_subdomain}-{project_slug}",
                 'name': env_name,
-                'database_instance': f"{project_slug}-db-{env_name}" if env_name != 'prod' else f"{project_slug}-db",
+                'database_instance': f"{subdomain}-db-{env_name}" if env_name != 'prod' else f"{subdomain}-db",
                 'database_type': 'postgresql' if 'PostgreSQL' in database_choice else 'mysql' if 'MySQL' in database_choice else 'none',
                 'auto_deploy': (env_name == 'staging'),
                 'requires_approval': (env_name == 'prod')

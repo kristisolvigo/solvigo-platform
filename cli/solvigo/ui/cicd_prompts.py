@@ -129,10 +129,14 @@ def browse_for_dockerfile(
     # Build choices
     choices = []
 
-    # Show current path
-    path_display = str(current_path) if str(current_path) != '.' else './ (repository root)'
-    console.print(f"\n[cyan]📂 Browse: {path_display}[/cyan]")
-    console.print(f"[dim]Select Dockerfile for {service_type}[/dim]\n")
+    # Show current path more prominently
+    if str(current_path) == '.':
+        path_display = './ (repository root)'
+    else:
+        path_display = str(current_path)
+
+    console.print(f"\n[bold cyan]📂 Current folder: {path_display}[/bold cyan]")
+    console.print(f"[dim]Select Dockerfile for {service_type} service[/dim]\n")
 
     # Add parent directory option if not at root
     if current_path != Path('.'):
@@ -197,6 +201,9 @@ def prompt_dockerfile_location(service_type: str, base_path: Path = None) -> str
     """
     Interactive file browser for selecting Dockerfile location.
 
+    Automatically detects and pre-selects Dockerfile in the service directory
+    (backend/ or frontend/) if it exists.
+
     Args:
         service_type: 'backend' or 'frontend'
         base_path: Base directory to search (defaults to current directory)
@@ -209,8 +216,47 @@ def prompt_dockerfile_location(service_type: str, base_path: Path = None) -> str
 
     console.print(f"\n[cyan]═══ Select Dockerfile for {service_type} ═══[/cyan]")
 
-    # Start browsing from root
-    return browse_for_dockerfile(service_type, base_path, Path('.'))
+    # Check if service directory exists
+    service_dir = Path(service_type)
+    service_dir_full = base_path / service_dir
+
+    # Auto-detect Dockerfile in service directory
+    auto_detected = None
+    if service_dir_full.exists() and service_dir_full.is_dir():
+        # Check for Dockerfile in service directory
+        dockerfile_path = service_dir_full / 'Dockerfile'
+        if dockerfile_path.exists():
+            auto_detected = service_dir / 'Dockerfile'
+            console.print(f"[green]✓ Found Dockerfile at: {auto_detected}[/green]")
+
+        # Start browsing from service directory if it exists
+        start_path = service_dir
+    else:
+        # Start from root if service directory doesn't exist
+        start_path = Path('.')
+
+    # If Dockerfile was auto-detected, offer quick confirmation
+    if auto_detected:
+        choices = [
+            Choice(f"🐳 Use {auto_detected}  [Press Enter]", value=str(auto_detected)),
+            Choice("─" * 50, value=None, disabled=True),
+            Choice("📂 Browse for a different Dockerfile...", value="__browse__"),
+        ]
+
+        console.print()
+        result = questionary.select(
+            f"Dockerfile location:",
+            choices=choices,
+            default=str(auto_detected)
+        ).ask()
+
+        if result == "__browse__":
+            return browse_for_dockerfile(service_type, base_path, start_path)
+        else:
+            return result if result else str(auto_detected)
+    else:
+        # No auto-detection, start browsing
+        return browse_for_dockerfile(service_type, base_path, start_path)
 
 
 def prompt_repository_location(client: str, project: str) -> Path:
@@ -322,14 +368,14 @@ def prompt_environments() -> List[str]:
     Prompt user to select which environments to set up.
 
     Returns:
-        List of environments (e.g., ['staging', 'prod'])
+        List of environments (e.g., ['prod'])
     """
     console.print("\n[cyan]Which environments do you want to set up?[/cyan]\n")
     console.print("[dim]Note: Local development uses docker-compose (not cloud deployment)[/dim]\n")
 
     choices = [
-        Choice("Staging (auto-deploy on push to main)", value="staging", checked=True),
-        Choice("Prod (manual approval, tag-based)", value="prod", checked=True),
+        Choice("Prod (auto-deploy on push to main)", value="prod", checked=True),
+        Choice("Staging (coming soon)", value="staging", checked=False),
     ]
 
     result = questionary.checkbox(
@@ -337,7 +383,7 @@ def prompt_environments() -> List[str]:
         choices=choices
     ).ask()
 
-    return result if result else ["staging", "prod"]
+    return result if result else ["prod"]
 
 
 def show_cicd_summary(services: List[Dict], github_repo_url: str, environments: List[str]):
