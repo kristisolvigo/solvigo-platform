@@ -19,23 +19,32 @@ output "url_map_self_link" {
 }
 
 output "ssl_certificate_id" {
-  description = "Managed SSL certificate ID"
-  value       = var.enable_ssl ? google_compute_managed_ssl_certificate.lb[0].id : null
+  description = "Certificate Manager certificate ID"
+  value       = var.enable_ssl ? google_certificate_manager_certificate.solvigo_wildcard_cert.id : null
 }
 
 output "ssl_certificate_domains" {
   description = "Domains covered by SSL certificate"
-  value       = var.enable_ssl ? google_compute_managed_ssl_certificate.lb[0].managed[0].domains : []
+  value       = var.enable_ssl ? google_certificate_manager_certificate.solvigo_wildcard_cert.managed[0].domains : []
 }
 
 output "ssl_certificate_name" {
-  description = "SSL certificate name (use with gcloud to check status)"
-  value       = var.enable_ssl ? google_compute_managed_ssl_certificate.lb[0].name : null
+  description = "SSL certificate name"
+  value       = var.enable_ssl ? google_certificate_manager_certificate.solvigo_wildcard_cert.name : null
+}
+
+output "dns_authorization_record" {
+  description = "DNS CNAME record needed for certificate validation"
+  value = var.enable_ssl ? {
+    name  = google_certificate_manager_dns_authorization.solvigo_dns_auth.dns_resource_record[0].name
+    type  = google_certificate_manager_dns_authorization.solvigo_dns_auth.dns_resource_record[0].type
+    value = google_certificate_manager_dns_authorization.solvigo_dns_auth.dns_resource_record[0].data
+  } : null
 }
 
 output "check_ssl_status_command" {
   description = "Run this command to check SSL certificate status"
-  value       = var.enable_ssl ? "gcloud compute ssl-certificates describe ${google_compute_managed_ssl_certificate.lb[0].name} --global --project=${var.project_id}" : null
+  value       = var.enable_ssl ? "gcloud certificate-manager certificates describe ${google_certificate_manager_certificate.solvigo_wildcard_cert.name} --project=${var.project_id}" : null
 }
 
 output "https_forwarding_rule" {
