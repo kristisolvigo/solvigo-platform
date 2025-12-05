@@ -56,57 +56,62 @@ resource "google_compute_url_map" "lb" {
   default_service = google_compute_backend_service.default.id
   project         = var.project_id
 
-  # Host rules and path matchers will be added dynamically per client
-  # This is a baseline configuration
+  # Root domain redirect to solvigo.se
+  host_rule {
+    hosts        = ["solvigo.ai", "www.solvigo.ai"]
+    path_matcher = "root-redirect-matcher"
+  }
 
-  # Example host rule (commented out - will be added via separate resources per client)
-  # host_rule {
-  #   hosts        = ["*.acme-corp.solvigo.ai"]
-  #   path_matcher = "acme-corp-matcher"
-  # }
-  #
-  # path_matcher {
-  #   name            = "acme-corp-matcher"
-  #   default_service = google_compute_backend_service.default.id
-  #
-  #   path_rule {
-  #     paths   = ["/*"]
-  #     service = "backend-service-for-acme-corp"
-  #   }
-  # }
+  path_matcher {
+    name = "root-redirect-matcher"
+
+    default_url_redirect {
+      host_redirect          = "solvigo.se"
+      https_redirect         = true
+      redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
+      strip_query            = false
+    }
+  }
+
+  # SEO Text Optimization - Noga Client
+  host_rule {
+    hosts        = ["noga-seo.solvigo.ai"]
+    path_matcher = "noga-seo-matcher"
+  }
+
+  path_matcher {
+    name            = "noga-seo-matcher"
+    default_service = google_compute_backend_service.seo_noga_backend.id
+
+    path_rule {
+      paths   = ["/*"]
+      service = google_compute_backend_service.seo_noga_backend.id
+    }
+  }
 }
 
-# HTTP(S) Proxy
+# HTTP(S) Proxy with Certificate Manager
 resource "google_compute_target_https_proxy" "lb" {
   count = var.enable_ssl ? 1 : 0
 
-  name    = "solvigo-lb-https-proxy"
-  url_map = google_compute_url_map.lb.id
-  project = var.project_id
+  name            = "solvigo-lb-https-proxy"
+  url_map         = google_compute_url_map.lb.id
+  project         = var.project_id
+  certificate_map = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.solvigo_cert_map.id}"
 
-  ssl_certificates = [google_compute_managed_ssl_certificate.lb[0].id]
+  depends_on = [
+    google_certificate_manager_certificate_map_entry.solvigo_wildcard_entry
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_compute_target_http_proxy" "lb" {
   name    = "solvigo-lb-http-proxy"
   url_map = google_compute_url_map.lb.id
   project = var.project_id
-}
-
-# Managed SSL Certificate
-resource "google_compute_managed_ssl_certificate" "lb" {
-  count = var.enable_ssl ? 1 : 0
-
-  name    = "solvigo-lb-ssl-cert"
-  project = var.project_id
-
-  managed {
-    domains = var.ssl_domains
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 # Global Forwarding Rule (HTTPS)
